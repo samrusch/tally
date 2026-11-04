@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* daisyUI 5: register the plugin without its built-in themes, then define ours. */
+@plugin "daisyui" {
+  themes: false;
+}
+
+@plugin "daisyui/theme" {
+  name: "tally";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f4f5f1;
+  --color-base-300: #dde1da;
+  --color-base-content: #17221d;
+  --color-primary: #1f6f54;
+  --color-primary-content: #ffffff;
+  --color-secondary: #3b7dd8;
+  --color-secondary-content: #ffffff;
+  --color-accent: #5b4b8a;
+  --color-accent-content: #ffffff;
+  --color-neutral: #17221d;
+  --color-neutral-content: #e8eeea;
+  --color-info: #2a5db0;
+  --color-info-content: #ffffff;
+  --color-success: #1f6f54;
+  --color-success-content: #ffffff;
+  --color-warning: #f2c46d;
+  --color-warning-content: #3d2a00;
+  --color-error: #a3341f;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "tally-dark";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #1b2822;
+  --color-base-200: #141d19;
+  --color-base-300: #2c3a33;
+  --color-base-content: #e8eeea;
+  --color-primary: #3fa27d;
+  --color-primary-content: #0d1612;
+  --color-secondary: #6a9fe8;
+  --color-secondary-content: #0d1612;
+  --color-accent: #9b8bd0;
+  --color-accent-content: #0d1612;
+  --color-neutral: #0f1814;
+  --color-neutral-content: #e8eeea;
+  --color-info: #6a9fe8;
+  --color-info-content: #0d1612;
+  --color-success: #3fa27d;
+  --color-success-content: #0d1612;
+  --color-warning: #e8b64f;
+  --color-warning-content: #2b1d00;
+  --color-error: #e4846f;
+  --color-error-content: #2b0b05;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Money should line up in columns. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
