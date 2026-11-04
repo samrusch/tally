@@ -65,7 +65,7 @@ async function sendLink() {
       <form class="flex w-full max-w-sm flex-col gap-4" @submit.prevent="signIn">
         <div>
           <h2 class="text-2xl font-semibold">Sign in</h2>
-          <p class="text-base-content/70 mt-1 text-sm">Private app. Only your account can get in.</p>
+          <p class="text-base-content/70 mt-1 text-sm">Private application.</p>
         </div>
 
         <fieldset class="fieldset">
