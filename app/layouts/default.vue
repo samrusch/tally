@@ -13,6 +13,7 @@ const links = [
   { to: '/accounts', label: 'Accounts', match: (p: string) => p.startsWith('/accounts') },
   { to: '/budget', label: 'Budget', match: (p: string) => p.startsWith('/budget') },
   { to: '/debt', label: 'Debt planner', match: (p: string) => p.startsWith('/debt') },
+  { to: '/goals', label: 'Goals', match: (p: string) => p.startsWith('/goals') },
   { to: '/members', label: 'Members', match: (p: string) => p.startsWith('/members') },
 ]
 
@@ -21,6 +22,7 @@ async function signOut() {
   clearNuxtData('ledger')
   clearNuxtData('household')
   clearNuxtData('budget')
+  clearNuxtData('goals')
   await navigateTo('/login')
 }
 </script>
@@ -95,13 +97,6 @@ async function signOut() {
           <div class="text-neutral-content/70 text-xs">
             {{ ROLE_LABEL[household.role] }}{{ household.members.length > 1 ? ` · ${household.members.length} people` : '' }}
           </div>
-        </div>
-
-        <div class="px-2">
-          <div class="text-neutral-content/60 mb-2 text-xs tracking-wider uppercase">Coming next</div>
-          <ul class="text-neutral-content/60 space-y-2 text-sm">
-            <li>Goals</li>
-          </ul>
         </div>
 
         <div class="mt-auto flex flex-col gap-1 px-2 text-sm">

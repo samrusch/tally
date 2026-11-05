@@ -1,4 +1,4 @@
--- Tally: database schema with shared households, roles and the budget
+-- Tally: database schema with shared households, roles, the budget and goals
 -- Run this in the Supabase dashboard: SQL Editor -> New query -> paste -> Run.
 --
 -- It works for a brand new project AND upgrades an existing Tally database in place:
@@ -250,7 +250,7 @@ begin
   if new.created_by is not null and new.created_by is distinct from old.created_by then
     raise exception 'created_by cannot be changed';
   end if;
-  if tg_table_name in ('accounts', 'income_sources', 'budget_items') then
+  if tg_table_name in ('accounts', 'income_sources', 'budget_items', 'goals') then
     if new.household_id is distinct from old.household_id then
       raise exception 'This cannot be moved to another household';
     end if;
@@ -491,7 +491,8 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Budget: income sources and planned budget items (same roles as accounts)
+-- Budget and goals: same roles as accounts. Income sources and planned budget items first;
+-- the goals table follows below, and one set of policies covers all three tables.
 -- ---------------------------------------------------------------------------
 
 create table if not exists public.income_sources (
@@ -524,6 +525,50 @@ create table if not exists public.budget_items (
 create index if not exists income_sources_household_idx on public.income_sources (household_id);
 create index if not exists budget_items_household_idx on public.budget_items (household_id);
 
+-- ---------------------------------------------------------------------------
+-- Goals: things to save toward (a remodel, a property) and retirement
+--   target      needs an amount and a date
+--   retirement  needs current age, target age and the yearly spending wanted in retirement
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.goals (
+  id                   uuid primary key default gen_random_uuid(),
+  household_id         uuid not null references public.households (id) on delete cascade,
+  created_by           uuid default auth.uid() references auth.users (id) on delete set null,
+  name                 text not null check (char_length(name) between 1 and 120),
+  kind                 text not null check (kind in ('target', 'retirement')),
+  target_amount        numeric(14, 2) check (target_amount is null or target_amount >= 0),
+  target_amount_high   numeric(14, 2) check (target_amount_high is null or target_amount_high >= 0),  -- top of a range; planning uses this when set
+  target_date          date,
+  current_age          integer check (current_age is null or current_age between 0 and 120),
+  age_set_on           date not null default current_date,   -- current_age was true on this date
+  target_age           integer check (target_age is null or target_age between 0 and 120),
+  annual_spending      numeric(14, 2) check (annual_spending is null or annual_spending >= 0),  -- wanted per year in retirement, in today's dollars
+  withdrawal_rate      numeric(5, 2) not null default 4 check (withdrawal_rate > 0 and withdrawal_rate <= 20),
+  saved                numeric(14, 2) not null default 0 check (saved >= 0),   -- already set aside outside the tracked accounts
+  linked_account_ids   uuid[] not null default '{}',                           -- accounts whose latest balance counts toward this goal
+  monthly_contribution numeric(14, 2) not null default 0 check (monthly_contribution >= 0),
+  expected_return      numeric(5, 2) not null default 0 check (expected_return between -20 and 30),
+  active               boolean not null default true,
+  note                 text,
+  created_at           timestamptz not null default now(),
+  constraint goals_shape check (
+    (kind = 'target' and target_amount is not null and target_date is not null
+       and (target_amount_high is null or target_amount_high >= target_amount))
+    or
+    (kind = 'retirement' and annual_spending is not null and current_age is not null
+       and target_age is not null and target_age > current_age)
+  )
+);
+
+create index if not exists goals_household_idx on public.goals (household_id);
+
+drop trigger if exists goals_lock_ownership on public.goals;
+create trigger goals_lock_ownership before update on public.goals
+  for each row execute function public.lock_ownership();
+
+alter table public.goals enable row level security;
+
 drop trigger if exists income_lock_ownership on public.income_sources;
 create trigger income_lock_ownership before update on public.income_sources
   for each row execute function public.lock_ownership();
@@ -543,7 +588,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['income_sources', 'budget_items'] loop
+  foreach t in array array['income_sources', 'budget_items', 'goals'] loop
     execute format('drop policy if exists %I on public.%I', t || ': members can read', t);
     execute format('drop policy if exists %I on public.%I', t || ': contributors and up can insert', t);
     execute format('drop policy if exists %I on public.%I', t || ': editors, or creators, can update', t);
@@ -580,9 +625,9 @@ end $$;
 -- ---------------------------------------------------------------------------
 
 revoke all on public.households, public.household_members, public.household_invites,
-              public.accounts, public.balance_entries, public.income_sources, public.budget_items from anon;
+              public.accounts, public.balance_entries, public.income_sources, public.budget_items, public.goals from anon;
 revoke all on public.households, public.household_members, public.household_invites,
-              public.accounts, public.balance_entries, public.income_sources, public.budget_items from authenticated;
+              public.accounts, public.balance_entries, public.income_sources, public.budget_items, public.goals from authenticated;
 
 grant select on public.households to authenticated;
 grant update (name) on public.households to authenticated;
@@ -592,7 +637,7 @@ grant delete on public.household_members to authenticated;
 grant select, delete on public.household_invites to authenticated;
 grant select, insert, update, delete on public.accounts to authenticated;
 grant select, insert, update, delete on public.balance_entries to authenticated;
-grant select, insert, update, delete on public.income_sources, public.budget_items to authenticated;
+grant select, insert, update, delete on public.income_sources, public.budget_items, public.goals to authenticated;
 
 revoke all on function public.my_role(uuid), public.account_household(uuid), public.can_read_account(uuid),
               public.account_has_foreign_entries(uuid), public.invite_member(uuid, text, text),

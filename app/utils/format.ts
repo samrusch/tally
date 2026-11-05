@@ -31,6 +31,14 @@ export function compactMoney(n: number): string {
   return `${sign}$${Math.round(a)}`
 }
 
+/** "2 yr 3 mo", "7 mo" */
+export function fmtMonths(months: number): string {
+  const y = Math.floor(months / 12)
+  const m = months % 12
+  if (y === 0) return `${m} mo`
+  return m === 0 ? `${y} yr` : `${y} yr ${m} mo`
+}
+
 export function pct(n: number, digits = 1): string {
   return `${(n * 100).toFixed(digits)}%`
 }

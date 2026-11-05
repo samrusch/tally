@@ -114,3 +114,33 @@ export interface BudgetItem {
   active: boolean
   note: string | null
 }
+
+export type GoalKind = 'target' | 'retirement'
+
+export interface Goal {
+  id: string
+  household_id: string
+  created_by: string | null
+  name: string
+  kind: GoalKind
+  /** Target goals: the amount wanted (the low end when a range is given). */
+  target_amount: number | null
+  /** Target goals: top of the range; planning uses this when set. */
+  target_amount_high: number | null
+  target_date: string | null
+  current_age: number | null
+  /** current_age was true on this date, so age keeps advancing on its own. */
+  age_set_on: string
+  target_age: number | null
+  /** Retirement: yearly spending wanted, in today's dollars. */
+  annual_spending: number | null
+  withdrawal_rate: number
+  /** Already set aside outside the tracked accounts. */
+  saved: number
+  linked_account_ids: string[]
+  monthly_contribution: number
+  /** Expected yearly return in percent. For retirement this is after inflation. */
+  expected_return: number
+  active: boolean
+  note: string | null
+}

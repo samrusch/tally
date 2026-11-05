@@ -1,6 +1,6 @@
 # Tally
 
-A private budgeting and debt planning app. This is **stage 1: data collection and analysis**, plus shared household access, the **stage 2 debt planner** and the **stage 3 budget**.
+A private budgeting and debt planning app. This is **stage 1: data collection and analysis**, plus shared household access, the **stage 2 debt planner**, the **stage 3 budget** and the **stage 4 goals**.
 
 - Add accounts: checking, savings, investment, retirement, home, vehicle, credit cards, loans, mortgage.
 - Log balances by hand. Every update is kept, so you get a running history.
@@ -8,6 +8,7 @@ A private budgeting and debt planning app. This is **stage 1: data collection an
 - Dashboard with net worth over time, debt payoff projection, asset allocation, monthly deposits and plain-language insights.
 - **Debt planner** (`/debt`): payoff dates and interest for minimums only, snowball and avalanche, an extra-per-month slider, and a balance transfer calculator.
 - **Budget** (`/budget`): your take-home income (any pay frequency), planned spending by category, savings and extra debt payments, with your debt minimums pulled in from your accounts. Shows your planned savings rate and what is left to assign. The debt planner can use that left-over as your extra payment.
+- **Goals** (`/goals`): savings goals with an amount and a date (a remodel, a property, optionally a price range) and a retirement goal that works out the nest egg you need and the age you'd reach it. Each shows progress, the monthly amount needed, whether you're on track and a projection chart, and compares the total needed with your budget.
 - Behind a Supabase login. Row level security means only people you have added can read or write the data.
 - **Shared households with roles:** you are the owner and can add family members as editor, contributor or viewer (see *Sharing with family* below).
 
@@ -70,7 +71,7 @@ Everyone in a household sees the same accounts and balances. Open **Members** (s
 | | Owner | Editor | Contributor | Viewer |
 |---|---|---|---|---|
 | See everything | yes | yes | yes | yes |
-| Add accounts, balance updates, income and budget items | yes | yes | yes | no |
+| Add accounts, balance updates, income, budget items and goals | yes | yes | yes | no |
 | Change or delete those | yes | yes | only ones they created | no |
 | Invite people, change roles, remove people | yes | no | no | no |
 
@@ -116,6 +117,13 @@ The rules are enforced by the database, not just hidden buttons, so a viewer can
   *Planned savings rate* is savings divided by income. *Available for extra* debt payments is income minus spending, savings and minimums.
   Biweekly pay has two months a year with a third paycheck and weekly pay has four months with a fifth; the budget uses the average so those
   extra checks are free to send to debt or savings. This stage records the plan only, not what you actually spent.
+- **Goals** use steady monthly saving with a constant yearly return (monthly compounding) that you choose per goal, and ignore taxes and fees.
+  Progress is the latest balance of the accounts you link to the goal plus any money you mark as already set aside. *Needed per month* is the
+  amount that grows today's balance to the target by the date; *on track* means your planned monthly amount gets there. With a price range the plan
+  aims for the top of it, and for a purchase you'll finance, enter the cash you need (the down payment), not the full price.
+  A retirement goal's nest egg is yearly spending (in today's dollars) divided by the withdrawal rate (for example $90,000 at 4% needs $2.25 million),
+  and its return should be after inflation so everything stays in today's dollars. The age you reach the nest egg is shown for your planned pace.
+  The same account can count toward several goals, so check you aren't counting it twice.
 - **Update due** appears when an account hasn't been updated in over 35 days.
 
 ## Project layout
@@ -123,12 +131,12 @@ The rules are enforced by the database, not just hidden buttons, so a viewer can
 ```
 app/
   assets/css/main.css     Tailwind + daisyUI, plus the light and dark "tally" themes
-  components/             AccountForm, BudgetForm, LineChart, BarChart, StatCard, Sparkline
-  composables/            useLedger (loads + shares all data), useHousehold (role + members), useBudget (income + plan), useToast, useChartTheme
+  components/             AccountForm, BudgetForm, GoalForm, LineChart, BarChart, StatCard, Sparkline
+  composables/            useLedger (loads + shares all data), useHousehold (role + members), useBudget (income + plan), useGoals (goals + projections), useToast, useChartTheme
   layouts/                default (sidebar), blank (login)
-  pages/                  index (dashboard), accounts/index, accounts/[id], budget, debt, members, login, confirm
+  pages/                  index (dashboard), accounts/index, accounts/[id], budget, debt, goals, members, login, confirm
   types/                  app types + database.types.ts
-  utils/                  finance.ts (math and insights), payoff.ts (debt planner), budget.ts (budget maths), format.ts, errors.ts
+  utils/                  finance.ts (math and insights), payoff.ts (debt planner), budget.ts (budget maths), goals.ts (projections), format.ts, errors.ts
 supabase/schema.sql       tables, households and roles, constraints, row level security
 ```
 
@@ -172,5 +180,4 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_REF > app/types/data
 
 ## Ideas for the next stages
 
-Next: actual spending against the budget (monthly totals per category), then goals (home remodel, lakefront property, retire at 55).
-Also possible: CSV import/export of balance history.
+Ideas for later: actual spending against the budget (monthly totals per category), CSV import and export of balance history, and hiding chosen accounts from chosen people.

@@ -140,6 +140,12 @@ export type Database = {
         Update: { name?: string; kind?: string; category?: string; amount?: number; frequency?: string; flexible?: boolean; active?: boolean; note?: string | null }
         Relationships: []
       }
+      goals: {
+        Row: { id: string; household_id: string; created_by: string | null; name: string; kind: string; target_amount: number | null; target_amount_high: number | null; target_date: string | null; current_age: number | null; age_set_on: string; target_age: number | null; annual_spending: number | null; withdrawal_rate: number; saved: number; linked_account_ids: string[]; monthly_contribution: number; expected_return: number; active: boolean; note: string | null; created_at: string }
+        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; kind: string; target_amount?: number | null; target_amount_high?: number | null; target_date?: string | null; current_age?: number | null; age_set_on?: string; target_age?: number | null; annual_spending?: number | null; withdrawal_rate?: number; saved?: number; linked_account_ids?: string[]; monthly_contribution?: number; expected_return?: number; active?: boolean; note?: string | null; created_at?: string }
+        Update: { name?: string; target_amount?: number | null; target_amount_high?: number | null; target_date?: string | null; current_age?: number | null; age_set_on?: string; target_age?: number | null; annual_spending?: number | null; withdrawal_rate?: number; saved?: number; linked_account_ids?: string[]; monthly_contribution?: number; expected_return?: number; active?: boolean; note?: string | null }
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
     Functions: {
