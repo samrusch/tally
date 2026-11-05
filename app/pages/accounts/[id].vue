@@ -5,6 +5,7 @@ const route = useRoute()
 const supabase = useSupabaseClient()
 const toast = useToast()
 const { allAccounts, idx, pending, error } = useLedger()
+const { canAdd, canModify, canDeleteAccount } = useHousehold()
 
 const form = ref<{ open: (a?: Account) => void }>()
 
@@ -12,6 +13,8 @@ const account = computed(() => allAccounts.value.find((a) => a.id === route.para
 const meta = computed(() => (account.value ? TYPE_META[account.value.type] : null))
 const debt = computed(() => !!meta.value?.debt)
 const entries = computed<Entry[]>(() => idx.value.get(account.value?.id ?? '') ?? [])
+const canEditAccount = computed(() => !!account.value && canModify(account.value.created_by))
+const canRemoveAccount = computed(() => !!account.value && canDeleteAccount(account.value, entries.value))
 const first = computed(() => entries.value[0])
 const latest = computed(() => entries.value[entries.value.length - 1])
 const previous = computed(() => entries.value[entries.value.length - 2])
@@ -157,7 +160,7 @@ async function save() {
   )
   saving.value = false
   if (err) {
-    toast.error(err.message)
+    toast.error(friendlyError(err))
     return
   }
   toast.success('Update saved')
@@ -181,8 +184,9 @@ function editEntry(e: Entry) {
 
 async function removeEntry(e: Entry) {
   if (!confirm(`Delete the ${fmtDate(e.entry_date)} entry (${money(e.balance, true)})?`)) return
-  const { error: err } = await supabase.from('balance_entries').delete().eq('id', e.id)
-  if (err) return toast.error(err.message)
+  const { data, error: err } = await supabase.from('balance_entries').delete().eq('id', e.id).select('id')
+  if (err) return toast.error(friendlyError(err))
+  if (!data?.length) return toast.error(friendlyError('permission denied'))
   toast.success('Entry deleted')
   await refreshNuxtData('ledger')
 }
@@ -190,8 +194,9 @@ async function removeEntry(e: Entry) {
 async function removeAccount() {
   if (!account.value) return
   if (!confirm(`Delete "${account.value.name}" and all ${entries.value.length} of its entries? This cannot be undone.`)) return
-  const { error: err } = await supabase.from('accounts').delete().eq('id', account.value.id)
-  if (err) return toast.error(err.message)
+  const { data, error: err } = await supabase.from('accounts').delete().eq('id', account.value.id).select('id')
+  if (err) return toast.error(friendlyError(err))
+  if (!data?.length) return toast.error("You can't delete this account. Contributors can only delete accounts that hold nothing but their own updates.")
   toast.success('Account deleted')
   await refreshNuxtData('ledger')
   await navigateTo('/accounts')
@@ -240,15 +245,15 @@ async function removeAccount() {
               {{ signedMoney(change) }} since {{ shortDate(previous!.entry_date) }}
             </div>
           </div>
-          <div class="dropdown dropdown-end">
+          <div v-if="canEditAccount || canRemoveAccount" class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-square btn-ghost" aria-label="Account actions">
               <svg class="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
               </svg>
             </div>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 border-base-300 z-10 w-52 rounded-box border p-2 shadow">
-              <li><button @click="form?.open(account)">Edit account</button></li>
-              <li><button class="text-error" @click="removeAccount">Delete account</button></li>
+              <li v-if="canEditAccount"><button @click="form?.open(account)">Edit account</button></li>
+              <li v-if="canRemoveAccount"><button class="text-error" @click="removeAccount">Delete account</button></li>
             </ul>
           </div>
         </div>
@@ -272,7 +277,7 @@ async function removeAccount() {
       </div>
 
       <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
-        <section class="card border-base-300 bg-base-100 border lg:col-span-3" aria-label="Balance history">
+        <section class="card border-base-300 bg-base-100 border" :class="canAdd ? 'lg:col-span-3' : 'lg:col-span-5'" aria-label="Balance history">
           <div class="card-body gap-3">
             <div>
               <h2 class="font-semibold">
@@ -296,7 +301,7 @@ async function removeAccount() {
           </div>
         </section>
 
-        <section ref="formCard" class="card border-base-300 bg-base-100 border lg:col-span-2" aria-label="Record an update">
+        <section v-if="canAdd" ref="formCard" class="card border-base-300 bg-base-100 border lg:col-span-2" aria-label="Record an update">
           <form class="card-body gap-3" @submit.prevent="save">
             <div>
               <h2 class="font-semibold">Record an update</h2>
@@ -388,8 +393,10 @@ async function removeAccount() {
                   {{ [h.entry.source, h.entry.note].filter(Boolean).join(' · ') }}
                 </td>
                 <td class="text-right whitespace-nowrap">
-                  <button class="btn btn-ghost btn-xs" @click="editEntry(h.entry)">Edit</button>
-                  <button class="btn btn-ghost btn-xs text-error" @click="removeEntry(h.entry)">Delete</button>
+                  <template v-if="canModify(h.entry.created_by)">
+                    <button class="btn btn-ghost btn-xs" @click="editEntry(h.entry)">Edit</button>
+                    <button class="btn btn-ghost btn-xs text-error" @click="removeEntry(h.entry)">Delete</button>
+                  </template>
                 </td>
               </tr>
             </tbody>

@@ -38,6 +38,8 @@ export function useLedger() {
         accounts: accounts.map(
           (a): Account => ({
             id: a.id,
+            household_id: a.household_id,
+            created_by: a.created_by,
             name: a.name,
             type: a.type as Account['type'],
             institution: a.institution,
@@ -53,6 +55,7 @@ export function useLedger() {
           (e): Entry => ({
             id: e.id,
             account_id: e.account_id,
+            created_by: e.created_by,
             entry_date: e.entry_date,
             balance: Number(e.balance),
             contribution: num(e.contribution),

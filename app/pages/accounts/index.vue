@@ -4,6 +4,7 @@ import type { Account } from '~/types'
 useHead({ title: 'Accounts · Tally' })
 
 const { accounts, allAccounts, idx, pending, error } = useLedger()
+const { canAdd } = useHousehold()
 const form = ref<{ open: (a?: Account) => void }>()
 const showArchived = ref(false)
 
@@ -67,7 +68,7 @@ const groups = computed(() =>
           {{ accounts.length }} {{ accounts.length === 1 ? 'account' : 'accounts' }} · select one to see its history and log a new balance
         </p>
       </div>
-      <button class="btn btn-primary" @click="form?.open()">
+      <button v-if="canAdd" class="btn btn-primary" @click="form?.open()">
         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
         </svg>
@@ -92,9 +93,11 @@ const groups = computed(() =>
       <div class="card-body items-center gap-3 py-16 text-center">
         <h2 class="card-title">No accounts yet</h2>
         <p class="text-base-content/70 max-w-md">
-          Add checking, savings, investments, retirement, your home and car, plus any cards and loans.
+          {{ canAdd
+            ? 'Add checking, savings, investments, retirement, your home and car, plus any cards and loans.'
+            : 'Nothing has been added yet. Accounts will show up here once someone with access adds them.' }}
         </p>
-        <button class="btn btn-primary mt-2" @click="form?.open()">Add your first account</button>
+        <button v-if="canAdd" class="btn btn-primary mt-2" @click="form?.open()">Add your first account</button>
       </div>
     </div>
 

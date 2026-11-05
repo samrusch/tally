@@ -3,6 +3,7 @@ import type { Account, AccountType } from '~/types'
 
 const supabase = useSupabaseClient()
 const toast = useToast()
+const { household } = useHousehold()
 const { allAccounts } = useLedger()
 
 const dialog = ref<HTMLDialogElement>()
@@ -104,16 +105,19 @@ async function submit() {
     }
 
     if (mode.value === 'edit' && editingId.value) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('accounts')
         .update({ ...fields, archived: archived.value })
         .eq('id', editingId.value)
+        .select('id')
       if (error) throw error
+      if (!data?.length) throw new Error('permission denied')
       toast.success('Account saved')
     } else {
+      if (!household.value) throw new Error('No household found. Reload the page and try again.')
       const { data, error } = await supabase
         .from('accounts')
-        .insert({ ...fields, type: type.value })
+        .insert({ ...fields, type: type.value, household_id: household.value.id })
         .select('id')
         .single()
       if (error) throw error
@@ -135,7 +139,7 @@ async function submit() {
     dialog.value?.close()
     await refreshNuxtData('ledger')
   } catch (e) {
-    toast.error(e instanceof Error ? e.message : 'Could not save the account')
+    toast.error(friendlyError(e, 'Could not save the account'))
   } finally {
     saving.value = false
   }

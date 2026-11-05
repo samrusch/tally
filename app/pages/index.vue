@@ -5,6 +5,7 @@ import type { EquityRow } from '~/utils/finance'
 useHead({ title: 'Dashboard · Tally' })
 
 const { accounts, entries, idx, pending, error } = useLedger()
+const { canAdd } = useHousehold()
 
 const range = ref<6 | 12 | 24>(12)
 const today = new Date()
@@ -109,12 +110,13 @@ const toneClass = { good: 'badge-success', warn: 'badge-warning', info: 'badge-i
 
     <div v-else-if="!accounts.length" class="card border-base-300 bg-base-100 border">
       <div class="card-body items-center gap-3 py-16 text-center">
-        <h2 class="card-title">Add your first account</h2>
+        <h2 class="card-title">{{ canAdd ? 'Add your first account' : 'No accounts yet' }}</h2>
         <p class="text-base-content/70 max-w-md">
-          Start with a checking or savings account, then add your debts, investments, home and vehicle. Each balance
-          you log becomes a point on your charts.
+          {{ canAdd
+            ? 'Start with a checking or savings account, then add your debts, investments, home and vehicle. Each balance you log becomes a point on your charts.'
+            : 'Nothing has been added yet. The dashboard fills in once someone with access adds accounts.' }}
         </p>
-        <NuxtLink to="/accounts" class="btn btn-primary mt-2">Go to accounts</NuxtLink>
+        <NuxtLink v-if="canAdd" to="/accounts" class="btn btn-primary mt-2">Go to accounts</NuxtLink>
       </div>
     </div>
 

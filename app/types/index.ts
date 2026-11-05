@@ -13,6 +13,9 @@ export type AccountType =
 
 export interface Account {
   id: string
+  household_id: string
+  /** Who created it (null if that person was removed). Contributors can only change what they created. */
+  created_by: string | null
   name: string
   type: AccountType
   institution: string | null
@@ -29,6 +32,7 @@ export interface Account {
 export interface Entry {
   id: string
   account_id: string
+  created_by: string | null
   /** ISO date, YYYY-MM-DD */
   entry_date: string
   /** Value of an asset, or amount owed on a debt. */
@@ -52,4 +56,30 @@ export interface LineSeries {
 export interface Ledger {
   accounts: Account[]
   entries: Entry[]
+}
+
+export type Role = 'owner' | 'editor' | 'contributor' | 'viewer'
+
+export interface Member {
+  user_id: string
+  role: Role
+  email: string | null
+  created_at: string
+}
+
+export interface Invite {
+  id: string
+  email: string
+  role: Exclude<Role, 'owner'>
+  created_at: string
+}
+
+export interface HouseholdInfo {
+  id: string
+  name: string
+  role: Role
+  userId: string
+  members: Member[]
+  /** Only loaded for the owner. */
+  invites: Invite[]
 }

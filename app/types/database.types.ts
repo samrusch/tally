@@ -22,7 +22,8 @@ export type Database = {
           min_payment: number | null
           name: string
           type: string
-          user_id: string
+          created_by: string | null
+          household_id: string
         }
         Insert: {
           apr?: number | null
@@ -35,7 +36,8 @@ export type Database = {
           min_payment?: number | null
           name: string
           type: string
-          user_id?: string
+          created_by?: string | null
+          household_id: string
         }
         Update: {
           apr?: number | null
@@ -48,7 +50,8 @@ export type Database = {
           min_payment?: number | null
           name?: string
           type?: string
-          user_id?: string
+          created_by?: string | null
+          household_id?: string
         }
         Relationships: [
           {
@@ -71,7 +74,7 @@ export type Database = {
           mileage: number | null
           note: string | null
           source: string | null
-          user_id: string
+          created_by: string | null
         }
         Insert: {
           account_id: string
@@ -83,7 +86,7 @@ export type Database = {
           mileage?: number | null
           note?: string | null
           source?: string | null
-          user_id?: string
+          created_by?: string | null
         }
         Update: {
           account_id?: string
@@ -95,7 +98,7 @@ export type Database = {
           mileage?: number | null
           note?: string | null
           source?: string | null
-          user_id?: string
+          created_by?: string | null
         }
         Relationships: [
           {
@@ -107,9 +110,30 @@ export type Database = {
           },
         ]
       }
+      households: {
+        Row: { id: string; name: string; created_by: string | null; created_at: string }
+        Insert: { id?: string; name?: string; created_by?: string | null; created_at?: string }
+        Update: { name?: string }
+        Relationships: []
+      }
+      household_members: {
+        Row: { household_id: string; user_id: string; role: string; email: string | null; created_at: string }
+        Insert: { household_id: string; user_id: string; role: string; email?: string | null; created_at?: string }
+        Update: { role?: string }
+        Relationships: []
+      }
+      household_invites: {
+        Row: { id: string; household_id: string; email: string; role: string; invited_by: string | null; created_at: string }
+        Insert: { id?: string; household_id: string; email: string; role: string; invited_by?: string | null; created_at?: string }
+        Update: { id?: string }
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
-    Functions: { [_ in never]: never }
+    Functions: {
+      accept_invites: { Args: Record<PropertyKey, never>; Returns: number }
+      invite_member: { Args: { h: string; mail: string; member_role: string }; Returns: string }
+    }
     Enums: { [_ in never]: never }
     CompositeTypes: { [_ in never]: never }
   }
