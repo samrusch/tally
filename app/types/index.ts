@@ -83,3 +83,34 @@ export interface HouseholdInfo {
   /** Only loaded for the owner. */
   invites: Invite[]
 }
+
+export type Frequency = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly' | 'quarterly' | 'annual'
+
+export interface IncomeSource {
+  id: string
+  household_id: string
+  created_by: string | null
+  name: string
+  /** Take-home pay per period, after taxes. */
+  amount: number
+  frequency: Frequency
+  active: boolean
+  note: string | null
+}
+
+export type BudgetKind = 'expense' | 'saving' | 'extra_debt'
+
+export interface BudgetItem {
+  id: string
+  household_id: string
+  created_by: string | null
+  name: string
+  kind: BudgetKind
+  category: string
+  amount: number
+  frequency: Frequency
+  /** Can be trimmed when money is tight. */
+  flexible: boolean
+  active: boolean
+  note: string | null
+}

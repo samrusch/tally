@@ -11,6 +11,8 @@ watch(() => route.fullPath, () => (drawerOpen.value = false))
 const links = [
   { to: '/', label: 'Dashboard', match: (p: string) => p === '/' },
   { to: '/accounts', label: 'Accounts', match: (p: string) => p.startsWith('/accounts') },
+  { to: '/budget', label: 'Budget', match: (p: string) => p.startsWith('/budget') },
+  { to: '/debt', label: 'Debt planner', match: (p: string) => p.startsWith('/debt') },
   { to: '/members', label: 'Members', match: (p: string) => p.startsWith('/members') },
 ]
 
@@ -18,6 +20,7 @@ async function signOut() {
   await supabase.auth.signOut()
   clearNuxtData('ledger')
   clearNuxtData('household')
+  clearNuxtData('budget')
   await navigateTo('/login')
 }
 </script>
@@ -97,9 +100,7 @@ async function signOut() {
         <div class="px-2">
           <div class="text-neutral-content/60 mb-2 text-xs tracking-wider uppercase">Coming next</div>
           <ul class="text-neutral-content/60 space-y-2 text-sm">
-            <li>Budget</li>
             <li>Goals</li>
-            <li>Debt planner</li>
           </ul>
         </div>
 

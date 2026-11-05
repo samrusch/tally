@@ -128,6 +128,18 @@ export type Database = {
         Update: { id?: string }
         Relationships: []
       }
+      income_sources: {
+        Row: { id: string; household_id: string; created_by: string | null; name: string; amount: number; frequency: string; active: boolean; note: string | null; created_at: string }
+        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; amount: number; frequency: string; active?: boolean; note?: string | null; created_at?: string }
+        Update: { name?: string; amount?: number; frequency?: string; active?: boolean; note?: string | null }
+        Relationships: []
+      }
+      budget_items: {
+        Row: { id: string; household_id: string; created_by: string | null; name: string; kind: string; category: string; amount: number; frequency: string; flexible: boolean; active: boolean; note: string | null; created_at: string }
+        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; kind?: string; category?: string; amount: number; frequency: string; flexible?: boolean; active?: boolean; note?: string | null; created_at?: string }
+        Update: { name?: string; kind?: string; category?: string; amount?: number; frequency?: string; flexible?: boolean; active?: boolean; note?: string | null }
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
     Functions: {

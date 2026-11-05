@@ -224,8 +224,11 @@ const toneClass = { good: 'badge-success', warn: 'badge-warning', info: 'badge-i
                 <h2 class="font-semibold">Debt payoff</h2>
                 <p class="text-base-content/70 text-sm">Cards and loans (mortgage excluded), with a projection at your recent pace</p>
               </div>
-              <span v-if="payoff.total <= 0" class="badge badge-success">Debt-free</span>
-              <span v-else-if="payoff.date" class="badge badge-warning">Debt-free ≈ {{ monthYear(payoff.date) }}</span>
+              <div class="flex items-center gap-2">
+                <span v-if="payoff.total <= 0" class="badge badge-success">Debt-free</span>
+                <span v-else-if="payoff.date" class="badge badge-warning">Debt-free ≈ {{ monthYear(payoff.date) }}</span>
+                <NuxtLink to="/debt" class="btn btn-sm btn-outline">Open planner</NuxtLink>
+              </div>
             </div>
             <LineChart
               :labels="debtChart.labels"

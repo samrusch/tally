@@ -1,4 +1,4 @@
--- Tally: database schema with shared households and roles
+-- Tally: database schema with shared households, roles and the budget
 -- Run this in the Supabase dashboard: SQL Editor -> New query -> paste -> Run.
 --
 -- It works for a brand new project AND upgrades an existing Tally database in place:
@@ -250,9 +250,9 @@ begin
   if new.created_by is not null and new.created_by is distinct from old.created_by then
     raise exception 'created_by cannot be changed';
   end if;
-  if tg_table_name = 'accounts' then
+  if tg_table_name in ('accounts', 'income_sources', 'budget_items') then
     if new.household_id is distinct from old.household_id then
-      raise exception 'An account cannot be moved to another household';
+      raise exception 'This cannot be moved to another household';
     end if;
   end if;
   return new;
@@ -491,13 +491,98 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- Budget: income sources and planned budget items (same roles as accounts)
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.income_sources (
+  id           uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households (id) on delete cascade,
+  created_by   uuid default auth.uid() references auth.users (id) on delete set null,
+  name         text not null check (char_length(name) between 1 and 120),
+  amount       numeric(14, 2) not null check (amount >= 0),        -- take-home, after taxes
+  frequency    text not null check (frequency in ('weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'annual')),
+  active       boolean not null default true,
+  note         text,
+  created_at   timestamptz not null default now()
+);
+
+create table if not exists public.budget_items (
+  id           uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households (id) on delete cascade,
+  created_by   uuid default auth.uid() references auth.users (id) on delete set null,
+  name         text not null check (char_length(name) between 1 and 120),
+  kind         text not null default 'expense' check (kind in ('expense', 'saving', 'extra_debt')),
+  category     text not null default 'Other' check (char_length(category) between 1 and 60),
+  amount       numeric(14, 2) not null check (amount >= 0),
+  frequency    text not null check (frequency in ('weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'annual')),
+  flexible     boolean not null default false,                     -- can be trimmed if money is tight
+  active       boolean not null default true,
+  note         text,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists income_sources_household_idx on public.income_sources (household_id);
+create index if not exists budget_items_household_idx on public.budget_items (household_id);
+
+drop trigger if exists income_lock_ownership on public.income_sources;
+create trigger income_lock_ownership before update on public.income_sources
+  for each row execute function public.lock_ownership();
+drop trigger if exists budget_lock_ownership on public.budget_items;
+create trigger budget_lock_ownership before update on public.budget_items
+  for each row execute function public.lock_ownership();
+
+alter table public.income_sources enable row level security;
+alter table public.budget_items enable row level security;
+
+-- The same four rules for both tables:
+--   read    any member
+--   add     owner, editor, contributor (and it must be recorded as theirs)
+--   change  owner and editor on anything; a contributor only on what they created
+--   delete  same as change
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['income_sources', 'budget_items'] loop
+    execute format('drop policy if exists %I on public.%I', t || ': members can read', t);
+    execute format('drop policy if exists %I on public.%I', t || ': contributors and up can insert', t);
+    execute format('drop policy if exists %I on public.%I', t || ': editors, or creators, can update', t);
+    execute format('drop policy if exists %I on public.%I', t || ': editors, or creators, can delete', t);
+
+    execute format(
+      'create policy %I on public.%I for select to authenticated using (public.my_role(household_id) is not null)',
+      t || ': members can read', t);
+
+    execute format(
+      'create policy %I on public.%I for insert to authenticated with check (
+         public.my_role(household_id) in (''owner'', ''editor'', ''contributor'')
+         and created_by = (select auth.uid()))',
+      t || ': contributors and up can insert', t);
+
+    execute format(
+      'create policy %I on public.%I for update to authenticated
+         using (public.my_role(household_id) in (''owner'', ''editor'')
+                or (public.my_role(household_id) = ''contributor'' and created_by = (select auth.uid())))
+         with check (public.my_role(household_id) in (''owner'', ''editor'')
+                or (public.my_role(household_id) = ''contributor'' and created_by = (select auth.uid())))',
+      t || ': editors, or creators, can update', t);
+
+    execute format(
+      'create policy %I on public.%I for delete to authenticated
+         using (public.my_role(household_id) in (''owner'', ''editor'')
+                or (public.my_role(household_id) = ''contributor'' and created_by = (select auth.uid())))',
+      t || ': editors, or creators, can delete', t);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Privileges: signed-in users only, nothing for anonymous visitors
 -- ---------------------------------------------------------------------------
 
 revoke all on public.households, public.household_members, public.household_invites,
-              public.accounts, public.balance_entries from anon;
+              public.accounts, public.balance_entries, public.income_sources, public.budget_items from anon;
 revoke all on public.households, public.household_members, public.household_invites,
-              public.accounts, public.balance_entries from authenticated;
+              public.accounts, public.balance_entries, public.income_sources, public.budget_items from authenticated;
 
 grant select on public.households to authenticated;
 grant update (name) on public.households to authenticated;
@@ -507,6 +592,7 @@ grant delete on public.household_members to authenticated;
 grant select, delete on public.household_invites to authenticated;
 grant select, insert, update, delete on public.accounts to authenticated;
 grant select, insert, update, delete on public.balance_entries to authenticated;
+grant select, insert, update, delete on public.income_sources, public.budget_items to authenticated;
 
 revoke all on function public.my_role(uuid), public.account_household(uuid), public.can_read_account(uuid),
               public.account_has_foreign_entries(uuid), public.invite_member(uuid, text, text),

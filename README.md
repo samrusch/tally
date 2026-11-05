@@ -1,11 +1,13 @@
 # Tally
 
-A private budgeting and debt planning app. This is **stage 1: data collection and analysis**, plus shared household access.
+A private budgeting and debt planning app. This is **stage 1: data collection and analysis**, plus shared household access, the **stage 2 debt planner** and the **stage 3 budget**.
 
 - Add accounts: checking, savings, investment, retirement, home, vehicle, credit cards, loans, mortgage.
 - Log balances by hand. Every update is kept, so you get a running history.
 - Link a home or vehicle to its loan and Tally tracks your **equity** (value minus loan balance).
 - Dashboard with net worth over time, debt payoff projection, asset allocation, monthly deposits and plain-language insights.
+- **Debt planner** (`/debt`): payoff dates and interest for minimums only, snowball and avalanche, an extra-per-month slider, and a balance transfer calculator.
+- **Budget** (`/budget`): your take-home income (any pay frequency), planned spending by category, savings and extra debt payments, with your debt minimums pulled in from your accounts. Shows your planned savings rate and what is left to assign. The debt planner can use that left-over as your extra payment.
 - Behind a Supabase login. Row level security means only people you have added can read or write the data.
 - **Shared households with roles:** you are the owner and can add family members as editor, contributor or viewer (see *Sharing with family* below).
 
@@ -27,7 +29,7 @@ A private budgeting and debt planning app. This is **stage 1: data collection an
    - Redirect URLs: add `http://localhost:3000/confirm` and `https://YOUR-APP.vercel.app/confirm` (only needed for the "email me a sign-in link" option).
 6. Open **Project Settings → API** and copy the **Project URL** and the **publishable key** (older projects call it the *anon* key).
 
-### Upgrading a database that already has Tally data
+### Upgrading a database that already has Tally data (also needed for each new stage)
 
 Run the new `supabase/schema.sql` in the SQL Editor, exactly as above. It is safe on a live database: your accounts and balance history stay,
 and everything you have entered so far moves into a household that you own. It runs as a single transaction, so if anything goes wrong
@@ -68,8 +70,8 @@ Everyone in a household sees the same accounts and balances. Open **Members** (s
 | | Owner | Editor | Contributor | Viewer |
 |---|---|---|---|---|
 | See everything | yes | yes | yes | yes |
-| Add accounts and balance updates | yes | yes | yes | no |
-| Change or delete accounts and updates | yes | yes | only ones they created | no |
+| Add accounts, balance updates, income and budget items | yes | yes | yes | no |
+| Change or delete those | yes | yes | only ones they created | no |
 | Invite people, change roles, remove people | yes | no | no | no |
 
 A contributor can delete an account they created only while all of its history is theirs too, so they can never wipe out someone else's entries.
@@ -102,6 +104,18 @@ The rules are enforced by the database, not just hidden buttons, so a viewer can
 - **Debt payoff** projects cards and loans only (the mortgage is excluded). It measures how fast each balance fell over its own history
   (up to 12 months, at least one month needed), adds those paces together and runs them forward in a straight line. It ignores interest,
   so treat the date as a rough guide.
+- **Debt planner** simulates month by month: interest of APR / 12 is added to each balance, every debt gets its minimum, and the rest of
+  your budget (all original minimums plus your extra) goes to the target debt. Cleared debts' minimums roll onto the next one.
+  *Avalanche* targets the highest rate, *snowball* the smallest balance, *minimums only* pays no extra and no rollover.
+  A missing APR is treated as 0% and a missing minimum as the larger of $25 or 2% of the balance; both are flagged on the page.
+  Edit rates and minimums right on the page; they save to the account (and follow the same role rules, so a viewer sees them greyed out).
+  The mortgage is left out unless you tick the box.
+- **Budget** converts everything to an average month: weekly pay is x 52 / 12, every two weeks is x 26 / 12, twice a month is x 2,
+  quarterly is / 3, yearly is / 12. Income minus planned spending, debt minimums, savings and extra debt payments is *left to assign*.
+  Debt minimums come from the debts on the Accounts page (the mortgage included), so they are never typed twice.
+  *Planned savings rate* is savings divided by income. *Available for extra* debt payments is income minus spending, savings and minimums.
+  Biweekly pay has two months a year with a third paycheck and weekly pay has four months with a fifth; the budget uses the average so those
+  extra checks are free to send to debt or savings. This stage records the plan only, not what you actually spent.
 - **Update due** appears when an account hasn't been updated in over 35 days.
 
 ## Project layout
@@ -109,12 +123,12 @@ The rules are enforced by the database, not just hidden buttons, so a viewer can
 ```
 app/
   assets/css/main.css     Tailwind + daisyUI, plus the light and dark "tally" themes
-  components/             AccountForm, LineChart, BarChart, StatCard, Sparkline
-  composables/            useLedger (loads + shares all data), useHousehold (role + members), useToast, useChartTheme
+  components/             AccountForm, BudgetForm, LineChart, BarChart, StatCard, Sparkline
+  composables/            useLedger (loads + shares all data), useHousehold (role + members), useBudget (income + plan), useToast, useChartTheme
   layouts/                default (sidebar), blank (login)
-  pages/                  index (dashboard), accounts/index, accounts/[id], members, login, confirm
+  pages/                  index (dashboard), accounts/index, accounts/[id], budget, debt, members, login, confirm
   types/                  app types + database.types.ts
-  utils/                  finance.ts (all the math and insights), format.ts, errors.ts
+  utils/                  finance.ts (math and insights), payoff.ts (debt planner), budget.ts (budget maths), format.ts, errors.ts
 supabase/schema.sql       tables, households and roles, constraints, row level security
 ```
 
@@ -158,5 +172,5 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_REF > app/types/data
 
 ## Ideas for the next stages
 
-Debt planner, stage 3: monthly budget (biweekly pay, categories, real savings rate). Stage 4: goals (home remodel, lakefront property, retire at 55).
+Next: actual spending against the budget (monthly totals per category), then goals (home remodel, lakefront property, retire at 55).
 Also possible: CSV import/export of balance history.
