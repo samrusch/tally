@@ -23,6 +23,7 @@ async function signOut() {
   clearNuxtData('household')
   clearNuxtData('budget')
   clearNuxtData('goals')
+  clearNuxtData('activity')
   await navigateTo('/login')
 }
 </script>

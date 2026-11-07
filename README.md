@@ -5,7 +5,7 @@ A private budgeting and debt planning app. This is **stage 1: data collection an
 - Add accounts: checking, savings, investment, retirement, home, vehicle, credit cards, loans, mortgage.
 - Log balances by hand. Every update is kept, so you get a running history.
 - Link a home or vehicle to its loan and Tally tracks your **equity** (value minus loan balance).
-- Dashboard with net worth over time, debt payoff projection, asset allocation, monthly deposits and plain-language insights.
+- Dashboard with net worth over time, debt payoff projection, asset allocation, an **Activity** feed and plain-language insights. (Your average monthly deposits still show in the top row.)
 - **Debt planner** (`/debt`): payoff dates and interest for minimums only, snowball and avalanche, an extra-per-month slider, and a balance transfer calculator.
 - **Budget** (`/budget`): your take-home income (any pay frequency), planned spending by category, savings and extra debt payments, with your debt minimums pulled in from your accounts. Shows your planned savings rate and what is left to assign. The debt planner can use that left-over as your extra payment.
 - **Goals** (`/goals`): savings goals with an amount and a date (a remodel, a property, optionally a price range) and a retirement goal that works out the nest egg you need and the age you'd reach it. Each shows progress, the monthly amount needed, whether you're on track and a projection chart, and compares the total needed with your budget.
@@ -124,6 +124,7 @@ The rules are enforced by the database, not just hidden buttons, so a viewer can
   A retirement goal's nest egg is yearly spending (in today's dollars) divided by the withdrawal rate (for example $90,000 at 4% needs $2.25 million),
   and its return should be after inflation so everything stays in today's dollars. The age you reach the nest egg is shown for your planned pace.
   The same account can count toward several goals, so check you aren't counting it twice.
+- **Activity** (dashboard): the 10 most recent additions, changes and deletions across accounts, balances, income, budget items, goals and members, with who did each. It is recorded by the database itself, so it can't be skipped or edited, and everyone in the household can read it. It starts empty and only records things from the day you run the updated `schema.sql`. Changing only a balance's note isn't logged, and anything done directly in the Supabase SQL editor isn't either. Deleting an account logs one line, not one per balance entry.
 - **Update due** appears when an account hasn't been updated in over 35 days.
 
 ## Project layout
@@ -132,11 +133,11 @@ The rules are enforced by the database, not just hidden buttons, so a viewer can
 app/
   assets/css/main.css     Tailwind + daisyUI, plus the light and dark "tally" themes
   components/             AccountForm, BudgetForm, GoalForm, LineChart, BarChart, StatCard, Sparkline
-  composables/            useLedger (loads + shares all data), useHousehold (role + members), useBudget (income + plan), useGoals (goals + projections), useToast, useChartTheme
+  composables/            useLedger (loads + shares all data), useHousehold (role + members), useBudget (income + plan), useGoals (goals + projections), useActivity (recent changes), useToast, useChartTheme
   layouts/                default (sidebar), blank (login)
   pages/                  index (dashboard), accounts/index, accounts/[id], budget, debt, goals, members, login, confirm
   types/                  app types + database.types.ts
-  utils/                  finance.ts (math and insights), payoff.ts (debt planner), budget.ts (budget maths), goals.ts (projections), format.ts, errors.ts
+  utils/                  finance.ts (math and insights), payoff.ts (debt planner), budget.ts (budget maths), goals.ts (projections), activity.ts (activity sentences), format.ts, errors.ts
 supabase/schema.sql       tables, households and roles, constraints, row level security
 ```
 

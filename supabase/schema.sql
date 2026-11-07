@@ -621,13 +621,120 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- Activity log: who added, changed or deleted what (shown on the dashboard)
+--   Written only by the triggers below, from the moment this runs onward.
+--   Everyone in the household can read it; nobody can write to it directly.
+--   Changes made straight in the SQL editor (no signed-in user) are not logged.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.activity_log (
+  id           uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households (id) on delete cascade,
+  actor_id     uuid,
+  actor_email  text,
+  action       text not null check (action in ('added', 'changed', 'deleted')),
+  entity       text not null check (entity in ('account', 'balance', 'income', 'budget', 'goal', 'member', 'invite')),
+  entity_id    uuid,                 -- the thing's id, so the app can link to it while it still exists
+  label        text,                 -- its name at the time (account name, budget item, goal, email)
+  amount       numeric(14, 2),
+  detail       text,                 -- extra context: a role, an account type, a frequency
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists activity_log_household_idx on public.activity_log (household_id, created_at desc);
+
+create or replace function public.log_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me   uuid := (select auth.uid());
+  r    jsonb := to_jsonb(case when tg_op = 'DELETE' then old else new end);
+  o    jsonb := case when tg_op = 'UPDATE' then to_jsonb(old) else null end;
+  hid  uuid;
+  ent  text;
+  act  text;
+  eid  uuid;
+  lbl  text;
+  amt  numeric;
+  det  text;
+begin
+  if me is null then
+    return null;
+  end if;
+
+  act := case tg_op when 'INSERT' then 'added' when 'UPDATE' then 'changed' else 'deleted' end;
+
+  if tg_table_name = 'accounts' then
+    ent := 'account'; hid := (r->>'household_id')::uuid; eid := (r->>'id')::uuid;
+    lbl := r->>'name'; det := r->>'type';
+  elsif tg_table_name = 'balance_entries' then
+    ent := 'balance'; eid := (r->>'account_id')::uuid;
+    select a.household_id, a.name into hid, lbl from public.accounts a where a.id = eid;
+    amt := (r->>'balance')::numeric; det := r->>'entry_date';
+    if tg_op = 'UPDATE' and (r->>'balance') is not distinct from (o->>'balance')
+       and (r->>'contribution') is not distinct from (o->>'contribution')
+       and (r->>'entry_date') is not distinct from (o->>'entry_date') then
+      return null;                      -- only a note or source changed; not worth a line
+    end if;
+  elsif tg_table_name = 'income_sources' then
+    ent := 'income'; hid := (r->>'household_id')::uuid; eid := (r->>'id')::uuid;
+    lbl := r->>'name'; amt := (r->>'amount')::numeric; det := r->>'frequency';
+  elsif tg_table_name = 'budget_items' then
+    ent := 'budget'; hid := (r->>'household_id')::uuid; eid := (r->>'id')::uuid;
+    lbl := r->>'name'; amt := (r->>'amount')::numeric; det := r->>'frequency';
+  elsif tg_table_name = 'goals' then
+    ent := 'goal'; hid := (r->>'household_id')::uuid; eid := (r->>'id')::uuid;
+    lbl := r->>'name'; amt := coalesce((r->>'target_amount_high')::numeric, (r->>'target_amount')::numeric);
+    det := r->>'kind';
+  elsif tg_table_name = 'household_members' then
+    ent := 'member'; hid := (r->>'household_id')::uuid; eid := (r->>'user_id')::uuid;
+    lbl := r->>'email'; det := r->>'role';
+  elsif tg_table_name = 'household_invites' then
+    if tg_op <> 'INSERT' then return null; end if;
+    ent := 'invite'; hid := (r->>'household_id')::uuid; lbl := r->>'email'; det := r->>'role';
+  else
+    return null;
+  end if;
+
+  -- The household (or the account) is already gone when it is being deleted along with everything in it.
+  if hid is null or not exists (select 1 from public.households h where h.id = hid) then
+    return null;
+  end if;
+
+  insert into public.activity_log (household_id, actor_id, actor_email, action, entity, entity_id, label, amount, detail)
+  values (hid, me, (select u.email from auth.users u where u.id = me), act, ent, eid, lbl, amt, det);
+  return null;
+end;
+$$;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['accounts', 'balance_entries', 'income_sources', 'budget_items', 'goals',
+                           'household_members', 'household_invites'] loop
+    execute format('drop trigger if exists %I on public.%I', t || '_log_activity', t);
+    execute format('create trigger %I after insert or update or delete on public.%I
+                    for each row execute function public.log_activity()', t || '_log_activity', t);
+  end loop;
+end $$;
+
+alter table public.activity_log enable row level security;
+drop policy if exists "activity: members can read" on public.activity_log;
+create policy "activity: members can read" on public.activity_log
+  for select to authenticated using (public.my_role(household_id) is not null);
+
+-- ---------------------------------------------------------------------------
 -- Privileges: signed-in users only, nothing for anonymous visitors
 -- ---------------------------------------------------------------------------
 
 revoke all on public.households, public.household_members, public.household_invites,
-              public.accounts, public.balance_entries, public.income_sources, public.budget_items, public.goals from anon;
+              public.accounts, public.balance_entries, public.income_sources, public.budget_items, public.goals, public.activity_log from anon;
 revoke all on public.households, public.household_members, public.household_invites,
-              public.accounts, public.balance_entries, public.income_sources, public.budget_items, public.goals from authenticated;
+              public.accounts, public.balance_entries, public.income_sources, public.budget_items, public.goals, public.activity_log from authenticated;
 
 grant select on public.households to authenticated;
 grant update (name) on public.households to authenticated;
@@ -638,7 +745,9 @@ grant select, delete on public.household_invites to authenticated;
 grant select, insert, update, delete on public.accounts to authenticated;
 grant select, insert, update, delete on public.balance_entries to authenticated;
 grant select, insert, update, delete on public.income_sources, public.budget_items, public.goals to authenticated;
+grant select on public.activity_log to authenticated;
 
+revoke all on function public.log_activity() from public, anon, authenticated;
 revoke all on function public.my_role(uuid), public.account_household(uuid), public.can_read_account(uuid),
               public.account_has_foreign_entries(uuid), public.invite_member(uuid, text, text),
               public.accept_invites() from public, anon;

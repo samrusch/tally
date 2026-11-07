@@ -144,3 +144,19 @@ export interface Goal {
   active: boolean
   note: string | null
 }
+
+export type ActivityAction = 'added' | 'changed' | 'deleted'
+export type ActivityEntity = 'account' | 'balance' | 'income' | 'budget' | 'goal' | 'member' | 'invite'
+
+export interface ActivityRow {
+  id: string
+  actor_id: string | null
+  actor_email: string | null
+  action: ActivityAction
+  entity: ActivityEntity
+  entity_id: string | null
+  label: string | null
+  amount: number | null
+  detail: string | null
+  created_at: string
+}

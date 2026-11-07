@@ -146,6 +146,12 @@ export type Database = {
         Update: { name?: string; target_amount?: number | null; target_amount_high?: number | null; target_date?: string | null; current_age?: number | null; age_set_on?: string; target_age?: number | null; annual_spending?: number | null; withdrawal_rate?: number; saved?: number; linked_account_ids?: string[]; monthly_contribution?: number; expected_return?: number; active?: boolean; note?: string | null }
         Relationships: []
       }
+      activity_log: {
+        Row: { id: string; household_id: string; actor_id: string | null; actor_email: string | null; action: string; entity: string; entity_id: string | null; label: string | null; amount: number | null; detail: string | null; created_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
     Functions: {

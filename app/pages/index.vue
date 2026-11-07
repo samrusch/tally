@@ -6,6 +6,10 @@ useHead({ title: 'Dashboard · Tally' })
 
 const { accounts, entries, idx, pending, error } = useLedger()
 const { canAdd } = useHousehold()
+const { rows: activity, pending: activityPending } = useActivity(10)
+const me = useSupabaseUser()
+const line = (r: (typeof activity.value)[number]) => activityLine(r, (me.value as { sub?: string } | null)?.sub)
+const dot = { added: 'bg-success', changed: 'bg-warning', deleted: 'bg-error' } as const
 
 const range = ref<6 | 12 | 24>(12)
 const today = new Date()
@@ -266,23 +270,30 @@ const toneClass = { good: 'badge-success', warn: 'badge-warning', info: 'badge-i
       </div>
 
       <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
-        <!-- Contributions -->
-        <section class="card border-base-300 bg-base-100 border lg:col-span-3" aria-label="Deposits by month">
+        <!-- Activity -->
+        <section class="card border-base-300 bg-base-100 border lg:col-span-3" aria-label="Activity">
           <div class="card-body gap-3">
             <div>
-              <h2 class="font-semibold">Deposits by month</h2>
-              <p class="text-base-content/70 text-sm">What you added to savings, investments and retirement</p>
+              <h2 class="font-semibold">Activity</h2>
+              <p class="text-base-content/70 text-sm">The latest additions, changes and deletions</p>
             </div>
-            <BarChart
-              v-if="hasContributions"
-              :labels="contribPoints.map((p) => p.label)"
-              :data="contributions"
-              :color="PALETTE.green"
-              series-label="Deposits"
-              description="Monthly deposits bar chart"
-            />
+            <ul v-if="activity.length" class="divide-base-300 divide-y" data-testid="activity-list">
+              <li v-for="r in activity" :key="r.id" class="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span class="mt-1.5 size-2.5 shrink-0 rounded-full" :class="dot[r.action]" aria-hidden="true" />
+                <div class="min-w-0 flex-1 text-sm leading-snug">
+                  <span class="font-medium">{{ line(r).who }}</span>
+                  {{ ' ' }}
+                  <NuxtLink v-if="line(r).href" :to="line(r).href as string" class="link link-hover">{{ line(r).text }}</NuxtLink>
+                  <span v-else>{{ line(r).text }}</span>
+                </div>
+                <time class="text-base-content/60 shrink-0 text-xs" :datetime="r.created_at" :title="new Date(r.created_at).toLocaleString()">
+                  {{ timeAgo(r.created_at) }}
+                </time>
+              </li>
+            </ul>
+            <p v-else-if="activityPending" class="text-base-content/70 py-10 text-center text-sm">Loading…</p>
             <p v-else class="text-base-content/70 py-10 text-center text-sm">
-              Enter “deposits since last update” on a savings, investment or retirement account and they'll show up here.
+              Nothing yet. Additions, changes and deletions will appear here from now on.
             </p>
           </div>
         </section>
