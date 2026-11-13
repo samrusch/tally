@@ -46,7 +46,7 @@ export interface CategoryRow {
 }
 
 export interface Allocation {
-  key: 'spending' | 'debt' | 'saving' | 'extra_debt' | 'left'
+  key: 'spending' | 'debt' | 'subscriptions' | 'saving' | 'extra_debt' | 'left'
   label: string
   monthly: number
   share: number
@@ -58,13 +58,15 @@ export interface BudgetSummary {
   fixed: number
   flexible: number
   debtMinimums: number
+  /** Subscriptions from the Accounts page, averaged per month. */
+  subscriptions: number
   savings: number
   extraDebt: number
-  /** Everything spoken for: spending + debt minimums + savings + extra debt payments. */
+  /** Everything spoken for: spending + debt minimums + subscriptions + savings + extra debt payments. */
   committed: number
   /** Income minus everything committed. Negative means the plan overspends. */
   left: number
-  /** What is free for extra debt payments: income minus spending, savings and minimums. */
+  /** What is free for extra debt payments: income minus spending, subscriptions, savings and minimums. */
   availableForExtra: number
   /** Planned savings as a share of income, or null with no income. */
   savingsRate: number | null
@@ -76,7 +78,12 @@ export interface BudgetSummary {
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
 
-export function summarizeBudget(income: IncomeSource[], items: BudgetItem[], debtMinimums: number): BudgetSummary {
+export function summarizeBudget(
+  income: IncomeSource[],
+  items: BudgetItem[],
+  debtMinimums: number,
+  subscriptions = 0,
+): BudgetSummary {
   const live = items.filter((i) => i.active)
   const monthlyOf = (i: BudgetItem) => toMonthly(i.amount, i.frequency)
   const inc = sum(income.filter((s) => s.active).map((s) => toMonthly(s.amount, s.frequency)))
@@ -87,7 +94,7 @@ export function summarizeBudget(income: IncomeSource[], items: BudgetItem[], deb
   const savings = sum(live.filter((i) => i.kind === 'saving').map(monthlyOf))
   const extraDebt = sum(live.filter((i) => i.kind === 'extra_debt').map(monthlyOf))
 
-  const committed = expenses + debtMinimums + savings + extraDebt
+  const committed = expenses + debtMinimums + subscriptions + savings + extraDebt
   const left = inc - committed
   const share = (v: number) => (inc > 0 ? v / inc : 0)
 
@@ -106,6 +113,7 @@ export function summarizeBudget(income: IncomeSource[], items: BudgetItem[], deb
   const allocation: Allocation[] = [
     { key: 'spending', label: 'Spending', monthly: expenses, share: share(expenses) },
     { key: 'debt', label: 'Debt minimums', monthly: debtMinimums, share: share(debtMinimums) },
+    { key: 'subscriptions', label: 'Subscriptions', monthly: subscriptions, share: share(subscriptions) },
     { key: 'saving', label: 'Savings', monthly: savings, share: share(savings) },
     { key: 'extra_debt', label: 'Extra debt payments', monthly: extraDebt, share: share(extraDebt) },
     { key: 'left', label: 'Left to assign', monthly: Math.max(0, left), share: share(Math.max(0, left)) },
@@ -117,11 +125,12 @@ export function summarizeBudget(income: IncomeSource[], items: BudgetItem[], deb
     fixed: expenses - flexible,
     flexible,
     debtMinimums,
+    subscriptions,
     savings,
     extraDebt,
     committed,
     left,
-    availableForExtra: inc - expenses - savings - debtMinimums,
+    availableForExtra: inc - expenses - subscriptions - savings - debtMinimums,
     savingsRate: inc > 0 ? savings / inc : null,
     buildRate: inc > 0 ? (savings + extraDebt) / inc : null,
     categories,

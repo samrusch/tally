@@ -12,20 +12,23 @@ export interface TypeMeta {
   property: boolean
   /** Types where you can log deposits so growth can be separated from contributions. */
   contributions: boolean
+  /** A recurring charge with no balance (a subscription). Not an asset or a debt. */
+  recurring: boolean
 }
 
 export const TYPE_META: Record<AccountType, TypeMeta> = {
-  checking: { label: 'Checking', group: 'Cash', debt: false, property: false, contributions: false },
-  savings: { label: 'Savings', group: 'Cash', debt: false, property: false, contributions: true },
-  investment: { label: 'Investment', group: 'Investments', debt: false, property: false, contributions: true },
-  retirement: { label: 'Retirement', group: 'Retirement', debt: false, property: false, contributions: true },
-  home: { label: 'Home', group: 'Property & vehicles', debt: false, property: true, contributions: false },
-  vehicle: { label: 'Vehicle', group: 'Property & vehicles', debt: false, property: true, contributions: false },
-  other_asset: { label: 'Other asset', group: 'Other assets', debt: false, property: false, contributions: false },
-  credit_card: { label: 'Credit card', group: 'Debts', debt: true, property: false, contributions: false },
-  loan: { label: 'Loan', group: 'Debts', debt: true, property: false, contributions: false },
-  mortgage: { label: 'Mortgage', group: 'Debts', debt: true, property: false, contributions: false },
-  other_debt: { label: 'Other debt', group: 'Debts', debt: true, property: false, contributions: false },
+  checking: { label: 'Checking', group: 'Cash', debt: false, property: false, contributions: false, recurring: false },
+  savings: { label: 'Savings', group: 'Cash', debt: false, property: false, contributions: true, recurring: false },
+  investment: { label: 'Investment', group: 'Investments', debt: false, property: false, contributions: true, recurring: false },
+  retirement: { label: 'Retirement', group: 'Retirement', debt: false, property: false, contributions: true, recurring: false },
+  home: { label: 'Home', group: 'Property & vehicles', debt: false, property: true, contributions: false, recurring: false },
+  vehicle: { label: 'Vehicle', group: 'Property & vehicles', debt: false, property: true, contributions: false, recurring: false },
+  other_asset: { label: 'Other asset', group: 'Other assets', debt: false, property: false, contributions: false, recurring: false },
+  credit_card: { label: 'Credit card', group: 'Debts', debt: true, property: false, contributions: false, recurring: false },
+  loan: { label: 'Loan', group: 'Debts', debt: true, property: false, contributions: false, recurring: false },
+  mortgage: { label: 'Mortgage', group: 'Debts', debt: true, property: false, contributions: false, recurring: false },
+  other_debt: { label: 'Other debt', group: 'Debts', debt: true, property: false, contributions: false, recurring: false },
+  subscription: { label: 'Subscription', group: 'Subscriptions', debt: false, property: false, contributions: false, recurring: true },
 }
 
 export const GROUP_ORDER = ['Cash', 'Investments', 'Retirement', 'Property & vehicles', 'Other assets', 'Debts']
@@ -33,7 +36,7 @@ export const GROUP_ORDER = ['Cash', 'Investments', 'Retirement', 'Property & veh
 export const TYPE_OPTIONS = (Object.keys(TYPE_META) as AccountType[]).map((value) => ({
   value,
   label: TYPE_META[value].label,
-  group: TYPE_META[value].debt ? 'Debts (what you owe)' : 'Assets (what you own)',
+  group: TYPE_META[value].recurring ? 'Recurring (not part of net worth)' : TYPE_META[value].debt ? 'Debts (what you owe)' : 'Assets (what you own)',
 }))
 
 export const isDebt = (t: AccountType): boolean => TYPE_META[t].debt

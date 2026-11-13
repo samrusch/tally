@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Account, AccountType } from '~/types'
+import type { Account, AccountType, Frequency } from '~/types'
 
 const supabase = useSupabaseClient()
 const toast = useToast()
@@ -18,6 +18,9 @@ const identifier = ref('')
 const apr = ref<string | number>('')
 const minPayment = ref<string | number>('')
 const paymentDay = ref<string | number>('')
+const billAmount = ref<string | number>('')
+const billFrequency = ref<Frequency>('monthly')
+const nextBillDate = ref('')
 const linkedId = ref('')
 const archived = ref(false)
 const balance = ref<string | number>('')
@@ -35,6 +38,7 @@ const identifierLabel = computed(() => (type.value === 'home' ? 'Address' : 'VIN
 const namePlaceholder = computed(
   () =>
     ({
+      subscription: 'e.g. Claude, Cell phone plan',
       home: 'e.g. Main house',
       vehicle: 'e.g. Family SUV',
       credit_card: 'e.g. Rewards card',
@@ -43,7 +47,9 @@ const namePlaceholder = computed(
     })[type.value as string] ?? 'e.g. Everyday checking',
 )
 const countsAs = computed(() =>
-  meta.value.debt
+  meta.value.recurring
+    ? 'Not part of net worth. A recurring charge with no balance, shown on the cash flow calendar.'
+    : meta.value.debt
     ? 'Counts as a debt: it subtracts from net worth and feeds the debt payoff projection.'
     : meta.value.property
       ? 'Counts as an asset. Link a loan below and Tally tracks your equity (value minus loan balance).'
@@ -58,6 +64,9 @@ function reset() {
   apr.value = ''
   minPayment.value = ''
   paymentDay.value = ''
+  billAmount.value = ''
+  billFrequency.value = 'monthly'
+  nextBillDate.value = ''
   linkedId.value = ''
   archived.value = false
   balance.value = ''
@@ -76,6 +85,9 @@ function open(account?: Account) {
     apr.value = account.apr === null ? '' : String(account.apr)
     minPayment.value = account.min_payment === null ? '' : String(account.min_payment)
     paymentDay.value = account.payment_day === null ? '' : String(account.payment_day)
+    billAmount.value = account.bill_amount === null ? '' : String(account.bill_amount)
+    billFrequency.value = account.bill_frequency ?? 'monthly'
+    nextBillDate.value = account.next_bill_date ?? ''
     linkedId.value = account.linked_account_id ?? ''
     archived.value = account.archived
   } else {
@@ -111,6 +123,9 @@ async function submit() {
       apr: meta.value.debt ? numOrNull(apr.value) : null,
       min_payment: meta.value.debt ? numOrNull(minPayment.value) : null,
       payment_day: meta.value.debt ? dayOrNull(paymentDay.value) : null,
+      bill_amount: meta.value.recurring ? numOrNull(billAmount.value) : null,
+      bill_frequency: meta.value.recurring ? billFrequency.value : null,
+      next_bill_date: meta.value.recurring ? nextBillDate.value || null : null,
       linked_account_id: meta.value.property ? linkedId.value || null : null,
     }
 
@@ -132,18 +147,21 @@ async function submit() {
         .single()
       if (error) throw error
 
-      const first = await supabase.from('balance_entries').insert({
-        account_id: data.id,
-        entry_date: asOf.value,
-        balance: Number(balance.value),
-        note: 'Opening balance',
-      })
-      if (first.error) {
-        // Don't leave an account behind with no history.
-        await supabase.from('accounts').delete().eq('id', data.id)
-        throw first.error
+      // A subscription has no balance, so there is no opening entry.
+      if (!meta.value.recurring) {
+        const first = await supabase.from('balance_entries').insert({
+          account_id: data.id,
+          entry_date: asOf.value,
+          balance: Number(balance.value),
+          note: 'Opening balance',
+        })
+        if (first.error) {
+          // Don't leave an account behind with no history.
+          await supabase.from('accounts').delete().eq('id', data.id)
+          throw first.error
+        }
       }
-      toast.success('Account added')
+      toast.success(meta.value.recurring ? 'Subscription added' : 'Account added')
     }
 
     dialog.value?.close()
@@ -165,7 +183,7 @@ async function submit() {
 
       <h2 class="text-xl font-semibold">{{ mode === 'create' ? 'Add account' : 'Edit account' }}</h2>
       <p class="text-base-content/70 mt-1 text-sm">
-        {{ mode === 'create' ? "Pick a type, name it, and enter today's balance." : 'Change details here. Balances are updated from the account page.' }}
+        {{ mode === 'create' ? (meta.recurring ? 'Name it and enter what it costs.' : "Pick a type, name it, and enter today's balance.") : 'Change details here. Balances are updated from the account page.' }}
       </p>
 
       <form class="mt-5 flex flex-col gap-4" @submit.prevent="submit">
@@ -182,8 +200,13 @@ async function submit() {
                 {{ o.label }}
               </option>
             </optgroup>
+            <optgroup label="Recurring (not part of net worth)">
+              <option v-for="o in TYPE_OPTIONS.filter((x) => x.group.startsWith('Recurring'))" :key="o.value" :value="o.value">
+                {{ o.label }}
+              </option>
+            </optgroup>
           </select>
-          <p class="label whitespace-normal" :class="meta.debt ? 'text-error' : 'text-success'">{{ countsAs }}</p>
+          <p class="label whitespace-normal" :class="meta.recurring ? '' : meta.debt ? 'text-error' : 'text-success'">{{ countsAs }}</p>
         </fieldset>
 
         <fieldset class="fieldset">
@@ -200,7 +223,7 @@ async function submit() {
           <input id="acc-inst" v-model="institution" type="text" class="input w-full" placeholder="e.g. Credit union" />
         </fieldset>
 
-        <div v-if="mode === 'create'" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div v-if="mode === 'create' && !meta.recurring" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <fieldset class="fieldset">
             <label class="label" for="acc-bal">{{ balanceLabel }}</label>
             <input id="acc-bal" v-model="balance" type="number" step="0.01" min="0" inputmode="decimal" class="input num w-full" required placeholder="0.00" />
@@ -210,6 +233,29 @@ async function submit() {
             <input id="acc-date" v-model="asOf" type="date" class="input w-full" required />
           </fieldset>
         </div>
+
+        <template v-if="meta.recurring">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <fieldset class="fieldset">
+              <label class="label" for="acc-bill">Cost each time</label>
+              <input id="acc-bill" v-model="billAmount" type="number" step="0.01" min="0" inputmode="decimal" class="input num w-full" required placeholder="0.00" />
+            </fieldset>
+            <fieldset class="fieldset">
+              <label class="label" for="acc-billfreq">How often</label>
+              <select id="acc-billfreq" v-model="billFrequency" class="select w-full">
+                <option v-for="f in FREQUENCIES" :key="f.value" :value="f.value">{{ f.label }}</option>
+              </select>
+            </fieldset>
+          </div>
+          <fieldset class="fieldset">
+            <label class="label" for="acc-billdate">A billing date <span class="opacity-60">(optional)</span></label>
+            <input id="acc-billdate" v-model="nextBillDate" type="date" class="input w-full sm:w-1/2" />
+            <p class="label whitespace-normal">
+              Any real date you were or will be charged. Tally repeats it ({{ FREQUENCY_LABEL[billFrequency].toLowerCase() }}) on the
+              <NuxtLink to="/calendar" class="link">cash flow calendar</NuxtLink>.
+            </p>
+          </fieldset>
+        </template>
 
         <div v-if="meta.debt" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <fieldset class="fieldset">
@@ -251,7 +297,7 @@ async function submit() {
           <button type="button" class="btn" @click="dialog?.close()">Cancel</button>
           <button type="submit" class="btn btn-primary" :disabled="saving">
             <span v-if="saving" class="loading loading-spinner loading-sm" />
-            {{ mode === 'create' ? 'Save account' : 'Save changes' }}
+            {{ mode === 'create' ? (meta.recurring ? 'Save subscription' : 'Save account') : 'Save changes' }}
           </button>
         </div>
       </form>

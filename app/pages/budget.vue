@@ -6,7 +6,7 @@ useHead({ title: 'Budget · Tally' })
 const supabase = useSupabaseClient()
 const toast = useToast()
 const { canAdd, canModify } = useHousehold()
-const { income, items, debts, missingMinimums, summary, pending, error } = useBudgetSummary()
+const { income, items, debts, missingMinimums, subscriptions, summary, pending, error } = useBudgetSummary()
 
 const form = ref<{ open: (t: any) => void }>()
 
@@ -16,6 +16,7 @@ const extras = computed(() => extraPaychecks(income.value))
 const COLORS: Record<string, string> = {
   spending: PALETTE.blue,
   debt: PALETTE.orange,
+  subscriptions: PALETTE.amber,
   saving: PALETTE.green,
   extra_debt: PALETTE.purple,
   left: PALETTE.gray,
@@ -78,8 +79,8 @@ const editItem = (row: BudgetItem) => form.value?.open({ type: 'item', kind: row
           <StatCard label="Monthly income" :value="money(s.income)" sub="Take-home, averaged per month" />
           <StatCard
             label="Planned spending"
-            :value="money(s.expenses + s.debtMinimums)"
-            :sub="`${money(s.expenses)} spending + ${money(s.debtMinimums)} debt minimums`"
+            :value="money(s.expenses + s.debtMinimums + s.subscriptions)"
+            :sub="`${money(s.expenses)} spending + ${money(s.debtMinimums)} debt minimums + ${money(s.subscriptions)} subscriptions`"
           />
           <StatCard
             label="Planned savings"
@@ -230,6 +231,30 @@ const editItem = (row: BudgetItem) => form.value?.open({ type: 'item', kind: row
                   Pulled from your debts, so they aren't entered twice (the mortgage included).
                   <template v-if="missingMinimums"> Add the missing {{ missingMinimums === 1 ? 'minimum' : 'minimums' }} on the account for an accurate total.</template>
                   Change a minimum on the account or in the <NuxtLink to="/debt" class="link">debt planner</NuxtLink>.
+                </p>
+              </div>
+
+              <!-- Subscriptions come from the accounts too -->
+              <div v-if="subscriptions.length" class="border-base-300 rounded-box border">
+                <div class="bg-base-200/60 flex items-center justify-between gap-3 rounded-t-[inherit] px-4 py-2">
+                  <span class="font-medium">Subscriptions</span>
+                  <span class="text-sm">
+                    <span class="num">{{ money(s.subscriptions) }}</span>
+                    <span class="text-base-content/60 ml-2">{{ s.income > 0 ? pct(s.subscriptions / s.income, 0) : '' }}</span>
+                  </span>
+                </div>
+                <ul class="divide-base-300 divide-y">
+                  <li v-for="a in subscriptions" :key="a.id" class="flex items-center justify-between gap-3 px-4 py-2">
+                    <NuxtLink to="/accounts" class="link link-hover truncate text-sm font-medium">{{ a.name }}</NuxtLink>
+                    <span class="num text-sm">
+                      {{ money(a.bill_amount ?? 0, true) }}
+                      <span class="text-base-content/60 text-xs">{{ FREQUENCY_LABEL[a.bill_frequency ?? 'monthly'].toLowerCase() }}</span>
+                    </span>
+                  </li>
+                </ul>
+                <p class="text-base-content/70 px-4 py-2 text-xs">
+                  Pulled from your subscriptions on the <NuxtLink to="/accounts" class="link">Accounts</NuxtLink> page, so they aren't entered twice.
+                  If you also listed one above, delete the copy here.
                 </p>
               </div>
 

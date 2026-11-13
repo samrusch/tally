@@ -10,6 +10,8 @@ export type AccountType =
   | 'loan'
   | 'mortgage'
   | 'other_debt'
+  /** A recurring charge with no balance. Kept out of net worth and every balance calculation. */
+  | 'subscription'
 
 export interface Account {
   id: string
@@ -25,6 +27,10 @@ export interface Account {
   min_payment: number | null
   /** Day of the month the payment is due (1-31). Short months use their last day. */
   payment_day: number | null
+  /** Subscriptions: what it costs each time, how often, and one real billing date the frequency repeats from. */
+  bill_amount: number | null
+  bill_frequency: Frequency | null
+  next_bill_date: string | null
   /** For a home or vehicle: the loan secured against it. */
   linked_account_id: string | null
   archived: boolean

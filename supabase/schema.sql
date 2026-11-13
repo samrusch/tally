@@ -58,7 +58,7 @@ create table if not exists public.accounts (
   type              text not null check (type in (
                       'checking', 'savings', 'investment', 'retirement',
                       'home', 'vehicle', 'other_asset',
-                      'credit_card', 'loan', 'mortgage', 'other_debt')),
+                      'credit_card', 'loan', 'mortgage', 'other_debt', 'subscription')),
   institution       text,
   identifier        text,                       -- street address (home) or VIN (vehicle)
   apr               numeric(6, 3) check (apr is null or apr >= 0),
@@ -530,6 +530,20 @@ alter table public.accounts drop constraint if exists accounts_payment_day_check
 alter table public.accounts add constraint accounts_payment_day_check
   check (payment_day is null or payment_day between 1 and 31);
 alter table public.income_sources add column if not exists next_pay_date date;
+-- Subscriptions are accounts with no balance: a recurring charge (a phone plan, a streaming service).
+--   accounts.bill_amount / bill_frequency / next_bill_date  what it costs, how often, and one real billing date
+alter table public.accounts drop constraint if exists accounts_type_check;
+alter table public.accounts add constraint accounts_type_check check (type in (
+  'checking', 'savings', 'investment', 'retirement', 'home', 'vehicle', 'other_asset',
+  'credit_card', 'loan', 'mortgage', 'other_debt', 'subscription'));
+alter table public.accounts add column if not exists bill_amount numeric(14, 2);
+alter table public.accounts add column if not exists bill_frequency text;
+alter table public.accounts add column if not exists next_bill_date date;
+alter table public.accounts drop constraint if exists accounts_bill_amount_check;
+alter table public.accounts add constraint accounts_bill_amount_check check (bill_amount is null or bill_amount >= 0);
+alter table public.accounts drop constraint if exists accounts_bill_frequency_check;
+alter table public.accounts add constraint accounts_bill_frequency_check
+  check (bill_frequency is null or bill_frequency in ('weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'annual'));
 -- budget_items.next_due_date  one real due date for a bill or planned transfer; the frequency repeats it
 alter table public.budget_items add column if not exists next_due_date date;
 

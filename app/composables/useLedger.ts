@@ -47,6 +47,9 @@ export function useLedger() {
             apr: num(a.apr),
             min_payment: num(a.min_payment),
             payment_day: num(a.payment_day),
+            bill_amount: num(a.bill_amount),
+            bill_frequency: (a.bill_frequency as Account['bill_frequency']) ?? null,
+            next_bill_date: a.next_bill_date,
             linked_account_id: a.linked_account_id,
             archived: a.archived,
             created_at: a.created_at,
@@ -70,11 +73,16 @@ export function useLedger() {
     { default: () => ({ accounts: [], entries: [] }) },
   )
 
-  const allAccounts = computed(() => data.value.accounts)
+  // Subscriptions live in the accounts table but have no balance, so they're kept apart from the accounts that
+  // feed net worth, goals, the debt planner and insights.
+  const everything = computed(() => data.value.accounts)
+  const allAccounts = computed(() => everything.value.filter((a) => a.type !== 'subscription'))
   const accounts = computed(() => allAccounts.value.filter((a) => !a.archived))
+  const allSubscriptions = computed(() => everything.value.filter((a) => a.type === 'subscription'))
+  const subscriptions = computed(() => allSubscriptions.value.filter((a) => !a.archived))
   const entries = computed(() => data.value.entries)
   const idx = computed(() => indexEntries(entries.value))
   const pending = computed(() => status.value === 'pending' || status.value === 'idle')
 
-  return { allAccounts, accounts, entries, idx, pending, error, refresh }
+  return { allAccounts, accounts, allSubscriptions, subscriptions, entries, idx, pending, error, refresh }
 }

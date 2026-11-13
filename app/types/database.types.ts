@@ -21,6 +21,9 @@ export type Database = {
           linked_account_id: string | null
           min_payment: number | null
           payment_day: number | null
+          bill_amount: number | null
+          bill_frequency: string | null
+          next_bill_date: string | null
           name: string
           type: string
           created_by: string | null
@@ -36,6 +39,9 @@ export type Database = {
           linked_account_id?: string | null
           min_payment?: number | null
           payment_day?: number | null
+          bill_amount?: number | null
+          bill_frequency?: string | null
+          next_bill_date?: string | null
           name: string
           type: string
           created_by?: string | null
@@ -51,6 +57,9 @@ export type Database = {
           linked_account_id?: string | null
           min_payment?: number | null
           payment_day?: number | null
+          bill_amount?: number | null
+          bill_frequency?: string | null
+          next_bill_date?: string | null
           name?: string
           type?: string
           created_by?: string | null

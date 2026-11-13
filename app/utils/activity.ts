@@ -36,7 +36,7 @@ export function activityLine(r: ActivityRow, meId: string | null | undefined): A
 
   switch (r.entity) {
     case 'account':
-      return { who, text: `${verb} the account ${name}`, href: gone || !r.entity_id ? null : `/accounts/${r.entity_id}` }
+      return { who, text: `${verb} the account ${name}`, href: gone || !r.entity_id ? null : r.detail === 'subscription' ? '/accounts' : `/accounts/${r.entity_id}` }
     case 'balance': {
       const href = r.entity_id ? `/accounts/${r.entity_id}` : null
       if (r.action === 'added') return { who, text: `recorded ${name} at ${amt}`, href }

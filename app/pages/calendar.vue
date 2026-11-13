@@ -3,7 +3,7 @@ import type { CashEvent } from '~/utils/cashflow'
 
 useHead({ title: 'Cash flow · Tally' })
 
-const { accounts, idx, pending: ledgerPending, error: ledgerError } = useLedger()
+const { accounts, subscriptions, idx, pending: ledgerPending, error: ledgerError } = useLedger()
 const { income, items, pending: budgetPending, error: budgetError } = useBudget()
 const { canAdd } = useHousehold()
 
@@ -17,20 +17,20 @@ const shift = (n: number) => (monthStart.value = addMonths(monthStart.value, n))
 const goToday = () => (monthStart.value = addMonths(new Date(), 0))
 
 const monthEnd = computed(() => new Date(monthStart.value.getFullYear(), monthStart.value.getMonth() + 1, 0))
-const events = computed(() => cashEvents(accounts.value, idx.value, income.value, monthStart.value, monthEnd.value, items.value))
+const events = computed(() => cashEvents(accounts.value, idx.value, income.value, monthStart.value, monthEnd.value, items.value, subscriptions.value))
 
 // Cash projection: start from today's checking balance and apply every dated event up to the end of the month shown.
 const hasChecking = computed(() => accounts.value.some((a) => a.type === 'checking'))
 const startCash = computed(() => cashOnHand(accounts.value, idx.value))
 const projection = computed(() => {
   if (!hasChecking.value || toISODate(monthEnd.value) < today) return null
-  const upTo = cashEvents(accounts.value, idx.value, income.value, parseISO(today), monthEnd.value, items.value)
+  const upTo = cashEvents(accounts.value, idx.value, income.value, parseISO(today), monthEnd.value, items.value, subscriptions.value)
   return projectCash(startCash.value, upTo, today)
 })
 const balanceOn = (date: string) => projection.value?.endOfDay.get(date) ?? null
 const totals = computed(() => totalsOf(events.value))
-const gaps = computed(() => missingDates(accounts.value, idx.value, income.value))
-const hasGaps = computed(() => gaps.value.income.length > 0 || gaps.value.debts.length > 0)
+const gaps = computed(() => missingDates(accounts.value, idx.value, income.value, subscriptions.value))
+const hasGaps = computed(() => gaps.value.income.length > 0 || gaps.value.debts.length > 0 || gaps.value.subscriptions.length > 0)
 
 const byDate = computed(() => {
   const m = new Map<string, CashEvent[]>()
@@ -115,6 +115,10 @@ const dayLabel = (iso: string) =>
               <NuxtLink :to="`/accounts/${d.id}`" class="link">{{ d.name }}</NuxtLink>{{ n < gaps.debts.length - 1 ? ', ' : '.' }}
             </template>
           </span>
+          <span v-if="gaps.subscriptions.length">
+            Subscriptions, add a billing date on the <NuxtLink to="/accounts" class="link">Accounts</NuxtLink> page:
+            {{ gaps.subscriptions.map((s) => s.name).join(', ') }}.
+          </span>
           <span v-if="!canAdd" class="opacity-70">Ask someone with edit access to add them.</span>
         </div>
       </div>
@@ -149,7 +153,7 @@ const dayLabel = (iso: string) =>
         <div class="card-body items-center gap-2 py-14 text-center">
           <h2 class="card-title">Nothing scheduled</h2>
           <p class="text-base-content/70 max-w-md">
-            Add a pay date to your income and due dates to your bills on the Budget page, and a due day to your debts on the Accounts page, and they will show up here.
+            Add a pay date to your income and due dates to your bills on the Budget page, and a due day to your debts and a billing date to your subscriptions on the Accounts page, and they will show up here.
           </p>
         </div>
       </div>

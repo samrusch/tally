@@ -116,6 +116,8 @@ export interface CashflowGaps {
   income: IncomeSource[]
   /** Debts with a balance but no due day. */
   debts: Account[]
+  /** Subscriptions with no billing date. */
+  subscriptions: Account[]
 }
 
 /** Income and debts that still need a date. Paused income and paid-off debts are left out. */
@@ -123,12 +125,14 @@ export function missingDates(
   accounts: Account[],
   idx: EntryIndex,
   income: IncomeSource[],
+  subscriptions: Account[] = [],
 ): CashflowGaps {
   return {
     income: income.filter((s) => s.active && s.amount > 0 && !s.next_pay_date),
     debts: accounts.filter(
       (a) => !a.archived && isDebt(a.type) && !a.payment_day && (balanceAt(idx, a.id) ?? 0) > 0,
     ),
+    subscriptions: subscriptions.filter((a) => !a.archived && (a.bill_amount ?? 0) > 0 && !a.next_bill_date),
   }
 }
 
@@ -143,6 +147,7 @@ export function cashEvents(
   from: Date,
   to: Date,
   items: BudgetItem[] = [],
+  subscriptions: Account[] = [],
 ): CashEvent[] {
   const events: CashEvent[] = []
 
@@ -165,6 +170,13 @@ export function cashEvents(
     if (!b.active || !b.next_due_date || b.amount <= 0) continue
     for (const date of payDates(b.next_due_date, b.frequency, from, to)) {
       events.push({ date, kind: 'bill', name: b.name, amount: b.amount, href: '/budget' })
+    }
+  }
+
+  for (const a of subscriptions) {
+    if (a.archived || !a.next_bill_date || !a.bill_amount || a.bill_amount <= 0) continue
+    for (const date of payDates(a.next_bill_date, a.bill_frequency ?? 'monthly', from, to)) {
+      events.push({ date, kind: 'bill', name: a.name, amount: a.bill_amount, href: '/accounts' })
     }
   }
 

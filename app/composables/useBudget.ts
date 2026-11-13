@@ -62,13 +62,18 @@ export function useBudget() {
  * Debts with no minimum entered count as $0 here and are reported in `missingMinimums`.
  */
 export function useBudgetSummary() {
-  const { accounts, idx } = useLedger()
+  const { accounts, subscriptions: subAccounts, idx } = useLedger()
   const { income, items, pending, error } = useBudget()
 
   const debts = computed(() => debtInputs(accounts.value, idx.value, true))
   const debtMinimums = computed(() => debts.value.reduce((s, d) => s + (d.minPayment ?? 0), 0))
   const missingMinimums = computed(() => debts.value.filter((d) => !d.minPayment).length)
-  const summary = computed(() => summarizeBudget(income.value, items.value, debtMinimums.value))
+  // Subscriptions come from the Accounts page, like debt minimums, so they aren't entered twice.
+  const subscriptions = computed(() => subAccounts.value.filter((a) => (a.bill_amount ?? 0) > 0))
+  const subscriptionsMonthly = computed(() =>
+    subscriptions.value.reduce((s, a) => s + toMonthly(a.bill_amount ?? 0, a.bill_frequency ?? 'monthly'), 0),
+  )
+  const summary = computed(() => summarizeBudget(income.value, items.value, debtMinimums.value, subscriptionsMonthly.value))
 
-  return { income, items, debts, debtMinimums, missingMinimums, summary, pending, error }
+  return { income, items, debts, debtMinimums, missingMinimums, subscriptions, summary, pending, error }
 }

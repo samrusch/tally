@@ -3,13 +3,39 @@ import type { Account } from '~/types'
 
 useHead({ title: 'Accounts · Tally' })
 
-const { accounts, allAccounts, idx, pending, error } = useLedger()
-const { canAdd } = useHousehold()
+const { accounts, allAccounts, subscriptions, allSubscriptions, idx, pending, error } = useLedger()
+const { canAdd, canModify } = useHousehold()
+const supabase = useSupabaseClient()
+const toast = useToast()
 const form = ref<{ open: (a?: Account) => void }>()
 const showArchived = ref(false)
 
 const visible = computed(() => (showArchived.value ? allAccounts.value : accounts.value))
-const archivedCount = computed(() => allAccounts.value.filter((a) => a.archived).length)
+const archivedCount = computed(
+  () => allAccounts.value.filter((a) => a.archived).length + allSubscriptions.value.filter((a) => a.archived).length,
+)
+
+const visibleSubs = computed(() => (showArchived.value ? allSubscriptions.value : subscriptions.value))
+const subMonthly = computed(() =>
+  subscriptions.value.reduce((s, a) => s + (a.bill_amount ? toMonthly(a.bill_amount, a.bill_frequency ?? 'monthly') : 0), 0),
+)
+
+/** The next time a subscription is billed, within the coming year. */
+function nextBilled(a: Account): string | null {
+  if (!a.next_bill_date) return null
+  const from = new Date()
+  const to = new Date(from.getFullYear() + 1, from.getMonth(), from.getDate())
+  return payDates(a.next_bill_date, a.bill_frequency ?? 'monthly', from, to)[0] ?? null
+}
+
+async function removeSub(a: Account) {
+  if (!confirm(`Delete "${a.name}"?`)) return
+  const { data, error: err } = await supabase.from('accounts').delete().eq('id', a.id).select('id')
+  if (err) return toast.error(friendlyError(err))
+  if (!data?.length) return toast.error(friendlyError('permission denied'))
+  toast.success('Deleted')
+  await refreshNuxtData('ledger')
+}
 const totals = computed(() => snapshotAt(accounts.value, idx.value))
 
 interface Row {
@@ -89,19 +115,19 @@ const groups = computed(() =>
       <span>Could not load your data: {{ error.message }}</span>
     </div>
 
-    <div v-else-if="!visible.length" class="card border-base-300 bg-base-100 border">
+    <div v-else-if="!visible.length && !visibleSubs.length" class="card border-base-300 bg-base-100 border">
       <div class="card-body items-center gap-3 py-16 text-center">
         <h2 class="card-title">No accounts yet</h2>
         <p class="text-base-content/70 max-w-md">
           {{ canAdd
-            ? 'Add checking, savings, investments, retirement, your home and car, plus any cards and loans.'
+            ? 'Add checking, savings, investments, retirement, your home and car, plus any cards, loans and subscriptions.'
             : 'Nothing has been added yet. Accounts will show up here once someone with access adds them.' }}
         </p>
         <button v-if="canAdd" class="btn btn-primary mt-2" @click="form?.open()">Add your first account</button>
       </div>
     </div>
 
-    <section v-else class="card border-base-300 bg-base-100 overflow-hidden border" aria-label="All accounts">
+    <section v-if="visible.length" class="card border-base-300 bg-base-100 overflow-hidden border" aria-label="All accounts">
       <div class="overflow-x-auto">
         <table class="table min-w-[44rem]">
           <thead>
@@ -151,9 +177,44 @@ const groups = computed(() =>
       </div>
     </section>
 
+    <section v-if="visibleSubs.length" class="card border-base-300 bg-base-100 border" aria-label="Subscriptions">
+      <div class="card-body gap-3">
+        <div>
+          <h2 class="font-semibold">Subscriptions</h2>
+          <p class="text-base-content/70 text-sm">
+            {{ money(subMonthly) }} a month · {{ money(subMonthly * 12) }} a year. Not part of net worth.
+          </p>
+        </div>
+        <ul class="divide-base-300 divide-y">
+          <li v-for="a in visibleSubs" :key="a.id" class="flex items-center justify-between gap-3 py-3" :class="{ 'opacity-60': a.archived }">
+            <div class="min-w-0">
+              <div class="truncate font-medium">
+                {{ a.name }}
+                <span v-if="a.archived" class="badge badge-ghost badge-sm ml-1">Archived</span>
+              </div>
+              <div class="text-base-content/70 text-sm">
+                <template v-if="a.bill_amount !== null">
+                  <span class="num">{{ money(a.bill_amount, true) }}</span> {{ FREQUENCY_LABEL[a.bill_frequency ?? 'monthly'].toLowerCase() }}
+                  <template v-if="a.bill_frequency && a.bill_frequency !== 'monthly'"> · <span class="num">{{ money(toMonthly(a.bill_amount, a.bill_frequency)) }}</span>/mo</template>
+                </template>
+                <template v-else>No cost entered</template>
+                <template v-if="nextBilled(a)"> · next {{ shortDate(nextBilled(a) as string) }}</template>
+                <template v-else> · <NuxtLink to="/calendar" class="link">no billing date</NuxtLink></template>
+                <template v-if="a.institution"> · {{ a.institution }}</template>
+              </div>
+            </div>
+            <div v-if="canModify(a.created_by)" class="shrink-0">
+              <button class="btn btn-ghost btn-xs" @click="form?.open(a)">Edit</button>
+              <button class="btn btn-ghost btn-xs text-error" @click="removeSub(a)">Delete</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <label v-if="archivedCount" class="label cursor-pointer justify-start gap-3 text-sm">
       <input v-model="showArchived" type="checkbox" class="checkbox checkbox-sm" />
-      Show {{ archivedCount }} archived {{ archivedCount === 1 ? 'account' : 'accounts' }}
+      Show {{ archivedCount }} archived {{ archivedCount === 1 ? 'item' : 'items' }}
     </label>
 
     <AccountForm ref="form" />
