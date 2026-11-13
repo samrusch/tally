@@ -46,6 +46,7 @@ export function useLedger() {
             identifier: a.identifier,
             apr: num(a.apr),
             min_payment: num(a.min_payment),
+            payment_day: num(a.payment_day),
             linked_account_id: a.linked_account_id,
             archived: a.archived,
             created_at: a.created_at,

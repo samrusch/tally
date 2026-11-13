@@ -17,6 +17,7 @@ const institution = ref('')
 const identifier = ref('')
 const apr = ref<string | number>('')
 const minPayment = ref<string | number>('')
+const paymentDay = ref<string | number>('')
 const linkedId = ref('')
 const archived = ref(false)
 const balance = ref<string | number>('')
@@ -56,6 +57,7 @@ function reset() {
   identifier.value = ''
   apr.value = ''
   minPayment.value = ''
+  paymentDay.value = ''
   linkedId.value = ''
   archived.value = false
   balance.value = ''
@@ -73,6 +75,7 @@ function open(account?: Account) {
     identifier.value = account.identifier ?? ''
     apr.value = account.apr === null ? '' : String(account.apr)
     minPayment.value = account.min_payment === null ? '' : String(account.min_payment)
+    paymentDay.value = account.payment_day === null ? '' : String(account.payment_day)
     linkedId.value = account.linked_account_id ?? ''
     archived.value = account.archived
   } else {
@@ -91,6 +94,12 @@ const numOrNull = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+// A due day is a whole number from 1 to 31.
+const dayOrNull = (v: unknown): number | null => {
+  const n = numOrNull(v)
+  return n === null ? null : Math.min(31, Math.max(1, Math.round(n)))
+}
+
 async function submit() {
   if (saving.value) return
   saving.value = true
@@ -101,6 +110,7 @@ async function submit() {
       identifier: meta.value.property ? identifier.value.trim() || null : null,
       apr: meta.value.debt ? numOrNull(apr.value) : null,
       min_payment: meta.value.debt ? numOrNull(minPayment.value) : null,
+      payment_day: meta.value.debt ? dayOrNull(paymentDay.value) : null,
       linked_account_id: meta.value.property ? linkedId.value || null : null,
     }
 
@@ -211,6 +221,15 @@ async function submit() {
             <input id="acc-min" v-model="minPayment" type="number" step="0.01" min="0" inputmode="decimal" class="input num w-full" placeholder="0.00" />
           </fieldset>
         </div>
+
+        <fieldset v-if="meta.debt" class="fieldset">
+          <label class="label" for="acc-day">Payment due day <span class="opacity-60">(optional)</span></label>
+          <input id="acc-day" v-model="paymentDay" type="number" step="1" min="1" max="31" inputmode="numeric" class="input num w-full sm:w-1/2" placeholder="e.g. 15" />
+          <p class="label whitespace-normal">
+            The day of the month it is due. It puts this payment on the <NuxtLink to="/calendar" class="link">cash flow calendar</NuxtLink>.
+            In shorter months it falls on the last day.
+          </p>
+        </fieldset>
 
         <fieldset v-if="meta.property" class="fieldset">
           <label class="label" for="acc-link">Linked loan <span class="opacity-60">(optional)</span></label>

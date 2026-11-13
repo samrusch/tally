@@ -23,6 +23,8 @@ export interface Account {
   identifier: string | null
   apr: number | null
   min_payment: number | null
+  /** Day of the month the payment is due (1-31). Short months use their last day. */
+  payment_day: number | null
   /** For a home or vehicle: the loan secured against it. */
   linked_account_id: string | null
   archived: boolean
@@ -96,6 +98,8 @@ export interface IncomeSource {
   frequency: Frequency
   active: boolean
   note: string | null
+  /** A real pay date (YYYY-MM-DD). The frequency repeats it forwards and backwards. */
+  next_pay_date: string | null
 }
 
 export type BudgetKind = 'expense' | 'saving' | 'extra_debt'

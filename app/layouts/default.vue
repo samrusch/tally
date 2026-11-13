@@ -12,6 +12,7 @@ const links = [
   { to: '/', label: 'Dashboard', match: (p: string) => p === '/' },
   { to: '/accounts', label: 'Accounts', match: (p: string) => p.startsWith('/accounts') },
   { to: '/budget', label: 'Budget', match: (p: string) => p.startsWith('/budget') },
+  { to: '/calendar', label: 'Cash flow', match: (p: string) => p.startsWith('/calendar') },
   { to: '/debt', label: 'Debt planner', match: (p: string) => p.startsWith('/debt') },
   { to: '/goals', label: 'Goals', match: (p: string) => p.startsWith('/goals') },
   { to: '/members', label: 'Members', match: (p: string) => p.startsWith('/members') },

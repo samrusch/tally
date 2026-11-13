@@ -20,6 +20,7 @@ export type Database = {
           institution: string | null
           linked_account_id: string | null
           min_payment: number | null
+          payment_day: number | null
           name: string
           type: string
           created_by: string | null
@@ -34,6 +35,7 @@ export type Database = {
           institution?: string | null
           linked_account_id?: string | null
           min_payment?: number | null
+          payment_day?: number | null
           name: string
           type: string
           created_by?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           institution?: string | null
           linked_account_id?: string | null
           min_payment?: number | null
+          payment_day?: number | null
           name?: string
           type?: string
           created_by?: string | null
@@ -129,9 +132,9 @@ export type Database = {
         Relationships: []
       }
       income_sources: {
-        Row: { id: string; household_id: string; created_by: string | null; name: string; amount: number; frequency: string; active: boolean; note: string | null; created_at: string }
-        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; amount: number; frequency: string; active?: boolean; note?: string | null; created_at?: string }
-        Update: { name?: string; amount?: number; frequency?: string; active?: boolean; note?: string | null }
+        Row: { id: string; household_id: string; created_by: string | null; name: string; amount: number; frequency: string; active: boolean; note: string | null; next_pay_date: string | null; created_at: string }
+        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; amount: number; frequency: string; active?: boolean; note?: string | null; next_pay_date?: string | null; created_at?: string }
+        Update: { name?: string; amount?: number; frequency?: string; active?: boolean; note?: string | null; next_pay_date?: string | null }
         Relationships: []
       }
       budget_items: {

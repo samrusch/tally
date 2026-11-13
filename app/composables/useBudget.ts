@@ -26,6 +26,7 @@ export function useBudget() {
             frequency: r.frequency as Frequency,
             active: r.active,
             note: r.note,
+            next_pay_date: r.next_pay_date,
           }),
         ),
         items: (items.data ?? []).map(

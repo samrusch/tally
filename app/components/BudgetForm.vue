@@ -17,6 +17,7 @@ const saving = ref(false)
 const name = ref('')
 const amount = ref<string | number>('')
 const frequency = ref<Frequency>('monthly')
+const nextPayDate = ref('')
 const category = ref('Other')
 const flexible = ref(false)
 const active = ref(true)
@@ -47,6 +48,7 @@ function open(t: Target) {
   frequency.value = row?.frequency ?? (t.type === 'income' ? 'biweekly' : 'monthly')
   active.value = row?.active ?? true
   note.value = row?.note ?? ''
+  nextPayDate.value = t.type === 'income' ? (t.row?.next_pay_date ?? '') : ''
   if (t.type === 'item') {
     const list = KIND_META[t.kind].categories
     const existing = t.row?.category
@@ -72,7 +74,7 @@ async function submit() {
       note: note.value.trim() || null,
     }
     const table = isIncome.value ? 'income_sources' : 'budget_items'
-    const fields = isIncome.value ? base : { ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value }
+    const fields = isIncome.value ? { ...base, next_pay_date: nextPayDate.value || null } : { ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value }
 
     if (editingId.value) {
       const { data, error } = await supabase.from(table).update(fields).eq('id', editingId.value).select('id')
@@ -81,7 +83,7 @@ async function submit() {
       toast.success('Saved')
     } else {
       const insert = isIncome.value
-        ? supabase.from('income_sources').insert({ ...base, household_id: household.value.id })
+        ? supabase.from('income_sources').insert({ ...base, next_pay_date: nextPayDate.value || null, household_id: household.value.id })
         : supabase.from('budget_items').insert({ ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value, kind: kind.value, household_id: household.value.id })
       const { error } = await insert
       if (error) throw error
@@ -124,6 +126,15 @@ async function submit() {
             </select>
           </fieldset>
         </div>
+
+        <fieldset v-if="isIncome" class="fieldset">
+          <label class="label" for="b-paydate">A pay date <span class="opacity-60">(optional)</span></label>
+          <input id="b-paydate" v-model="nextPayDate" type="date" class="input w-full sm:w-1/2" />
+          <p class="label whitespace-normal">
+            Any real payday, past or upcoming. Tally repeats it ({{ FREQUENCY_LABEL[frequency].toLowerCase() }}) on the
+            <NuxtLink to="/calendar" class="link">cash flow calendar</NuxtLink>.
+          </p>
+        </fieldset>
 
         <fieldset v-if="!isIncome" class="fieldset">
           <label class="label" for="b-cat">Category</label>
