@@ -18,6 +18,7 @@ const name = ref('')
 const amount = ref<string | number>('')
 const frequency = ref<Frequency>('monthly')
 const nextPayDate = ref('')
+const nextDueDate = ref('')
 const category = ref('Other')
 const flexible = ref(false)
 const active = ref(true)
@@ -49,6 +50,7 @@ function open(t: Target) {
   active.value = row?.active ?? true
   note.value = row?.note ?? ''
   nextPayDate.value = t.type === 'income' ? (t.row?.next_pay_date ?? '') : ''
+  nextDueDate.value = t.type === 'item' ? (t.row?.next_due_date ?? '') : ''
   if (t.type === 'item') {
     const list = KIND_META[t.kind].categories
     const existing = t.row?.category
@@ -74,7 +76,7 @@ async function submit() {
       note: note.value.trim() || null,
     }
     const table = isIncome.value ? 'income_sources' : 'budget_items'
-    const fields = isIncome.value ? { ...base, next_pay_date: nextPayDate.value || null } : { ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value }
+    const fields = isIncome.value ? { ...base, next_pay_date: nextPayDate.value || null } : { ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value, next_due_date: nextDueDate.value || null }
 
     if (editingId.value) {
       const { data, error } = await supabase.from(table).update(fields).eq('id', editingId.value).select('id')
@@ -84,7 +86,7 @@ async function submit() {
     } else {
       const insert = isIncome.value
         ? supabase.from('income_sources').insert({ ...base, next_pay_date: nextPayDate.value || null, household_id: household.value.id })
-        : supabase.from('budget_items').insert({ ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value, kind: kind.value, household_id: household.value.id })
+        : supabase.from('budget_items').insert({ ...base, category: category.value, flexible: kind.value === 'expense' && flexible.value, next_due_date: nextDueDate.value || null, kind: kind.value, household_id: household.value.id })
       const { error } = await insert
       if (error) throw error
       toast.success('Added')
@@ -142,6 +144,15 @@ async function submit() {
             <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
             <option v-if="!categories.includes(category)" :value="category">{{ category }}</option>
           </select>
+        </fieldset>
+
+        <fieldset v-if="!isIncome" class="fieldset">
+          <label class="label" for="b-duedate">A due date <span class="opacity-60">(optional)</span></label>
+          <input id="b-duedate" v-model="nextDueDate" type="date" class="input w-full sm:w-1/2" />
+          <p class="label whitespace-normal">
+            Any real date this is paid, past or upcoming. Tally repeats it ({{ FREQUENCY_LABEL[frequency].toLowerCase() }}) on the
+            <NuxtLink to="/calendar" class="link">cash flow calendar</NuxtLink>. Leave it blank for everyday spending like groceries.
+          </p>
         </fieldset>
 
         <label v-if="kind === 'expense' && !isIncome" class="label cursor-pointer justify-start gap-3">

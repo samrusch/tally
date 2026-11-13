@@ -1,11 +1,12 @@
-import type { Account, Frequency, IncomeSource } from '~/types'
+import type { Account, BudgetItem, Frequency, IncomeSource } from '~/types'
 import type { EntryIndex } from '~/utils/finance'
 
 /** One dated amount on the cash flow calendar. */
 export interface CashEvent {
   /** ISO date, YYYY-MM-DD */
   date: string
-  kind: 'income' | 'debt'
+  /** Income comes in; debt payments and budget bills go out. */
+  kind: 'income' | 'debt' | 'bill'
   name: string
   /** Null when it is a debt payment with no minimum entered yet. */
   amount: number | null
@@ -132,7 +133,7 @@ export function missingDates(
 }
 
 /**
- * Every paycheck and debt payment between `from` and `to`, in date order (income first on a shared day).
+ * Every paycheck, debt payment and dated budget bill between `from` and `to`, in date order (income first on a shared day).
  * Paused income, archived accounts and debts that are paid off are skipped.
  */
 export function cashEvents(
@@ -141,6 +142,7 @@ export function cashEvents(
   income: IncomeSource[],
   from: Date,
   to: Date,
+  items: BudgetItem[] = [],
 ): CashEvent[] {
   const events: CashEvent[] = []
 
@@ -159,7 +161,15 @@ export function cashEvents(
     }
   }
 
-  return events.sort((x, y) => x.date.localeCompare(y.date) || (x.kind === y.kind ? 0 : x.kind === 'income' ? -1 : 1))
+  for (const b of items) {
+    if (!b.active || !b.next_due_date || b.amount <= 0) continue
+    for (const date of payDates(b.next_due_date, b.frequency, from, to)) {
+      events.push({ date, kind: 'bill', name: b.name, amount: b.amount, href: '/budget' })
+    }
+  }
+
+  const order = { income: 0, debt: 1, bill: 2 }
+  return events.sort((x, y) => x.date.localeCompare(y.date) || order[x.kind] - order[y.kind])
 }
 
 export interface MonthTotals {
@@ -180,4 +190,38 @@ export function totalsOf(events: CashEvent[]): MonthTotals {
     else moneyOut += e.amount
   }
   return { moneyIn, moneyOut, net: moneyIn - moneyOut, unknownPayments }
+}
+
+export interface CashProjection {
+  /** Cash in checking accounts today, from their latest balances. */
+  start: number
+  /** Balance at the end of each day that has activity, from today through the end of the month shown. */
+  endOfDay: Map<string, number>
+  /** The lowest balance reached from today through the end of the month shown, and when. */
+  low: { date: string; balance: number } | null
+}
+
+/**
+ * Walks forward from today's cash, applying every dated event, so you can see whether you'd run short before payday.
+ * Only dated items are counted. Spending with no date (groceries, fuel) isn't, so the real balance will run lower.
+ * `events` must start no earlier than today and be in date order.
+ */
+export function projectCash(start: number, events: CashEvent[], today: string): CashProjection {
+  const endOfDay = new Map<string, number>()
+  let balance = start
+  let low: CashProjection['low'] = null
+  for (const e of events) {
+    if (e.date < today) continue
+    balance += e.kind === 'income' ? (e.amount ?? 0) : -(e.amount ?? 0)
+    endOfDay.set(e.date, balance)
+    if (!low || balance < low.balance) low = { date: e.date, balance }
+  }
+  return { start, endOfDay, low }
+}
+
+/** Cash on hand: the latest balance of every checking account. */
+export function cashOnHand(accounts: Account[], idx: EntryIndex): number {
+  return accounts
+    .filter((a) => !a.archived && a.type === 'checking')
+    .reduce((sum, a) => sum + (balanceAt(idx, a.id) ?? 0), 0)
 }

@@ -42,6 +42,7 @@ export function useBudget() {
             flexible: r.flexible,
             active: r.active,
             note: r.note,
+            next_due_date: r.next_due_date,
           }),
         ),
       }

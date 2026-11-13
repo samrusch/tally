@@ -530,6 +530,8 @@ alter table public.accounts drop constraint if exists accounts_payment_day_check
 alter table public.accounts add constraint accounts_payment_day_check
   check (payment_day is null or payment_day between 1 and 31);
 alter table public.income_sources add column if not exists next_pay_date date;
+-- budget_items.next_due_date  one real due date for a bill or planned transfer; the frequency repeats it
+alter table public.budget_items add column if not exists next_due_date date;
 
 create index if not exists income_sources_household_idx on public.income_sources (household_id);
 create index if not exists budget_items_household_idx on public.budget_items (household_id);

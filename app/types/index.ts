@@ -117,6 +117,8 @@ export interface BudgetItem {
   flexible: boolean
   active: boolean
   note: string | null
+  /** A real due date (YYYY-MM-DD). The frequency repeats it forwards and backwards. */
+  next_due_date: string | null
 }
 
 export type GoalKind = 'target' | 'retirement'

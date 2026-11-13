@@ -138,9 +138,9 @@ export type Database = {
         Relationships: []
       }
       budget_items: {
-        Row: { id: string; household_id: string; created_by: string | null; name: string; kind: string; category: string; amount: number; frequency: string; flexible: boolean; active: boolean; note: string | null; created_at: string }
-        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; kind?: string; category?: string; amount: number; frequency: string; flexible?: boolean; active?: boolean; note?: string | null; created_at?: string }
-        Update: { name?: string; kind?: string; category?: string; amount?: number; frequency?: string; flexible?: boolean; active?: boolean; note?: string | null }
+        Row: { id: string; household_id: string; created_by: string | null; name: string; kind: string; category: string; amount: number; frequency: string; flexible: boolean; active: boolean; note: string | null; next_due_date: string | null; created_at: string }
+        Insert: { id?: string; household_id: string; created_by?: string | null; name: string; kind?: string; category?: string; amount: number; frequency: string; flexible?: boolean; active?: boolean; note?: string | null; next_due_date?: string | null; created_at?: string }
+        Update: { name?: string; kind?: string; category?: string; amount?: number; frequency?: string; flexible?: boolean; active?: boolean; note?: string | null; next_due_date?: string | null }
         Relationships: []
       }
       goals: {

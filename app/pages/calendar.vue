@@ -4,7 +4,7 @@ import type { CashEvent } from '~/utils/cashflow'
 useHead({ title: 'Cash flow · Tally' })
 
 const { accounts, idx, pending: ledgerPending, error: ledgerError } = useLedger()
-const { income, pending: budgetPending, error: budgetError } = useBudget()
+const { income, items, pending: budgetPending, error: budgetError } = useBudget()
 const { canAdd } = useHousehold()
 
 const pending = computed(() => ledgerPending.value || budgetPending.value)
@@ -17,7 +17,17 @@ const shift = (n: number) => (monthStart.value = addMonths(monthStart.value, n))
 const goToday = () => (monthStart.value = addMonths(new Date(), 0))
 
 const monthEnd = computed(() => new Date(monthStart.value.getFullYear(), monthStart.value.getMonth() + 1, 0))
-const events = computed(() => cashEvents(accounts.value, idx.value, income.value, monthStart.value, monthEnd.value))
+const events = computed(() => cashEvents(accounts.value, idx.value, income.value, monthStart.value, monthEnd.value, items.value))
+
+// Cash projection: start from today's checking balance and apply every dated event up to the end of the month shown.
+const hasChecking = computed(() => accounts.value.some((a) => a.type === 'checking'))
+const startCash = computed(() => cashOnHand(accounts.value, idx.value))
+const projection = computed(() => {
+  if (!hasChecking.value || toISODate(monthEnd.value) < today) return null
+  const upTo = cashEvents(accounts.value, idx.value, income.value, parseISO(today), monthEnd.value, items.value)
+  return projectCash(startCash.value, upTo, today)
+})
+const balanceOn = (date: string) => projection.value?.endOfDay.get(date) ?? null
 const totals = computed(() => totalsOf(events.value))
 const gaps = computed(() => missingDates(accounts.value, idx.value, income.value))
 const hasGaps = computed(() => gaps.value.income.length > 0 || gaps.value.debts.length > 0)
@@ -42,6 +52,13 @@ const weeks = computed(() => {
   return Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7))
 })
 
+const CHIP: Record<CashEvent['kind'], string> = {
+  income: 'bg-success/15 text-success-content',
+  debt: 'bg-warning/20 text-warning-content',
+  bill: 'bg-info/20 text-info-content',
+}
+const DOT: Record<CashEvent['kind'], string> = { income: 'bg-success', debt: 'bg-warning', bill: 'bg-info' }
+
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const signed = (e: CashEvent) =>
@@ -52,7 +69,7 @@ const schedule = computed(() => {
   let running = 0
   return [...byDate.value.entries()].map(([date, list]) => {
     for (const e of list) running += e.kind === 'income' ? (e.amount ?? 0) : -(e.amount ?? 0)
-    return { date, list, running }
+    return { date, list, running, balance: balanceOn(date) }
   })
 })
 
@@ -102,26 +119,37 @@ const dayLabel = (iso: string) =>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Money in" :value="money(totals.moneyIn)" sub="Paychecks landing this month" />
         <StatCard
-          label="Debt payments"
+          label="Money out"
           :value="money(totals.moneyOut)"
-          :sub="totals.unknownPayments ? `${totals.unknownPayments} more with no minimum entered` : 'Minimum payments due this month'"
+          :sub="totals.unknownPayments ? `Debt payments and bills, plus ${totals.unknownPayments} with no minimum entered` : 'Debt payments and dated bills'"
         />
         <StatCard
           label="Net for the month"
           :value="signedMoney(totals.net)"
           :tone="totals.net < 0 ? 'bad' : 'good'"
-          sub="Before spending, savings and bills"
+          sub="Only what has a date"
         />
+        <StatCard
+          v-if="projection"
+          label="Lowest balance"
+          :value="projection.low ? money(projection.low.balance) : money(projection.start)"
+          :tone="(projection.low?.balance ?? projection.start) < 0 ? 'bad' : 'neutral'"
+          :sub="projection.low ? `${shortDate(projection.low.date)}, starting from ${money(projection.start)} in checking` : `${money(projection.start)} in checking, nothing else scheduled`"
+        />
+        <StatCard v-else-if="!hasChecking" label="Lowest balance" value="n/a" sub="Add a checking account to project your cash" />
       </div>
+      <p v-if="projection" class="text-base-content/60 -mt-3 text-xs">
+        The balance only counts items that have a date. Everyday spending with no date, like groceries, isn't included, so expect the real balance to run lower.
+      </p>
 
       <div v-if="!events.length && !hasGaps" class="card border-base-300 bg-base-100 border">
         <div class="card-body items-center gap-2 py-14 text-center">
           <h2 class="card-title">Nothing scheduled</h2>
           <p class="text-base-content/70 max-w-md">
-            Add a pay date to your income on the Budget page and a due day to your debts on the Accounts page, and they will show up here.
+            Add a pay date to your income and due dates to your bills on the Budget page, and a due day to your debts on the Accounts page, and they will show up here.
           </p>
         </div>
       </div>
@@ -144,15 +172,18 @@ const dayLabel = (iso: string) =>
                 ]"
               >
                 <template v-if="date">
-                  <div class="text-xs" :class="date === today ? 'text-primary font-semibold' : 'text-base-content/60'">
-                    {{ Number(date.slice(8)) }}
+                  <div class="flex items-baseline justify-between gap-1 text-xs" :class="date === today ? 'text-primary font-semibold' : 'text-base-content/60'">
+                    <span>{{ Number(date.slice(8)) }}</span>
+                    <span v-if="balanceOn(date) !== null" class="num font-normal" :class="(balanceOn(date) ?? 0) < 0 ? 'text-error' : ''" :title="`Balance after this day: ${money(balanceOn(date) ?? 0)}`">
+                      {{ compactMoney(balanceOn(date) ?? 0) }}
+                    </span>
                   </div>
                   <ul class="mt-1 flex flex-col gap-1">
                     <li
                       v-for="(e, ei) in byDate.get(date) ?? []"
                       :key="ei"
                       class="truncate rounded px-1 py-0.5 text-xs"
-                      :class="e.kind === 'income' ? 'bg-success/15 text-success-content' : 'bg-warning/20 text-warning-content'"
+                      :class="CHIP[e.kind]"
                       :title="`${e.name}: ${signed(e)}`"
                     >
                       <NuxtLink :to="e.href" class="num font-medium">{{ signed(e) }}</NuxtLink>
@@ -165,6 +196,8 @@ const dayLabel = (iso: string) =>
             <p class="text-base-content/60 flex gap-4 px-1 pt-1 text-xs">
               <span class="flex items-center gap-1.5"><span class="bg-success/40 size-3 rounded-sm" aria-hidden="true" /> Income</span>
               <span class="flex items-center gap-1.5"><span class="bg-warning/50 size-3 rounded-sm" aria-hidden="true" /> Debt payment</span>
+              <span class="flex items-center gap-1.5"><span class="bg-info/40 size-3 rounded-sm" aria-hidden="true" /> Bill</span>
+              <span v-if="projection" class="ml-auto">Small number: balance at the end of the day</span>
             </p>
           </div>
         </section>
@@ -174,7 +207,7 @@ const dayLabel = (iso: string) =>
           <div class="card-body gap-3">
             <div>
               <h2 class="font-semibold">Schedule</h2>
-              <p class="text-base-content/70 text-sm">Day by day, with the running total for the month</p>
+              <p class="text-base-content/70 text-sm">Day by day, with your projected checking balance after each day</p>
             </div>
             <p v-if="!schedule.length" class="text-base-content/70 text-sm">Nothing is scheduled in {{ monthYear(monthStart) }}.</p>
             <ul v-else class="divide-base-300 divide-y">
@@ -185,15 +218,21 @@ const dayLabel = (iso: string) =>
                   </div>
                   <ul class="mt-1 flex flex-col gap-0.5 text-sm">
                     <li v-for="(e, ei) in d.list" :key="ei" class="flex items-center gap-2">
-                      <span class="size-2 rounded-full" :class="e.kind === 'income' ? 'bg-success' : 'bg-warning'" aria-hidden="true" />
+                      <span class="size-2 rounded-full" :class="DOT[e.kind]" aria-hidden="true" />
                       <NuxtLink :to="e.href" class="link link-hover truncate">{{ e.name }}</NuxtLink>
                       <span class="num" :class="e.kind === 'income' ? 'text-success' : ''">{{ signed(e) }}</span>
                     </li>
                   </ul>
                 </div>
                 <div class="text-right text-xs">
-                  <div class="text-base-content/60">Month so far</div>
-                  <div class="num text-sm font-medium" :class="d.running < 0 ? 'text-error' : ''">{{ signedMoney(d.running) }}</div>
+                  <template v-if="d.balance !== null">
+                    <div class="text-base-content/60">Balance after</div>
+                    <div class="num text-sm font-medium" :class="d.balance < 0 ? 'text-error' : ''">{{ money(d.balance) }}</div>
+                  </template>
+                  <template v-else>
+                    <div class="text-base-content/60">Month so far</div>
+                    <div class="num text-sm font-medium" :class="d.running < 0 ? 'text-error' : ''">{{ signedMoney(d.running) }}</div>
+                  </template>
                 </div>
               </li>
             </ul>
