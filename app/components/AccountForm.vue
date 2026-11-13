@@ -290,7 +290,7 @@ async function submit() {
 
         <label v-if="mode === 'edit'" class="label cursor-pointer justify-start gap-3">
           <input v-model="archived" type="checkbox" class="checkbox checkbox-sm" />
-          <span>Archive this account (hide it and leave it out of totals; history is kept)</span>
+          <span class="text-base-content/70 mt-1 text-sm">Archive this account (hide it and leave it out of totals; history is kept)</span>
         </label>
 
         <div class="modal-action mt-2">
