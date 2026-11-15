@@ -37,6 +37,18 @@ async function removeSub(a: Account) {
   await refreshNuxtData('ledger')
 }
 const totals = computed(() => snapshotAt(accounts.value, idx.value))
+/** Change since this day last month, or null when nothing was logged back then. */
+const monthChange = computed(() => {
+  const d = new Date()
+  d.setMonth(d.getMonth() - 1)
+  const date = toISODate(d)
+  if (!accounts.value.some((a) => entryAt(idx.value, a.id, date) !== undefined)) return null
+  const prev = snapshotAt(accounts.value, idx.value, date)
+  return { assets: totals.value.assets - prev.assets, debts: totals.value.debts - prev.debts, net: totals.value.net - prev.net }
+})
+const monthSub = (n: number | undefined) => (n === undefined ? undefined : `${signedMoney(n)} past month`)
+const monthTone = (n: number | undefined, debt = false) => (n === undefined || n === 0 ? 'neutral' : (debt ? n < 0 : n > 0) ? 'good' : 'bad')
+const trend = computed(() => netWorthSeries(accounts.value, idx.value, monthEndPoints(12)).filter((p) => p.hasData))
 
 interface Row {
   account: Account
@@ -103,9 +115,9 @@ const groups = computed(() =>
     </header>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <StatCard label="Assets" :value="money(totals.assets)" />
-      <StatCard label="Debts" :value="money(totals.debts)" tone="debt" />
-      <StatCard label="Net worth" :value="money(totals.net)" />
+      <StatCard label="Assets" :value="money(totals.assets)" :sub="monthSub(monthChange?.assets)" :sub-tone="monthTone(monthChange?.assets)" :spark="trend.map((p) => p.assets)" :spark-color="PALETTE.green" />
+      <StatCard label="Debts" :value="money(totals.debts)" tone="debt" :sub="monthSub(monthChange?.debts)" :sub-tone="monthTone(monthChange?.debts, true)" :spark="trend.map((p) => p.debts)" :spark-color="PALETTE.orange" />
+      <StatCard label="Net worth" :value="money(totals.net)" :sub="monthSub(monthChange?.net)" :sub-tone="monthTone(monthChange?.net)" :spark="trend.map((p) => p.net)" :spark-color="PALETTE.blue" />
     </div>
 
     <div v-if="pending && !allAccounts.length" class="flex justify-center py-24">
@@ -177,15 +189,15 @@ const groups = computed(() =>
       </div>
     </section>
 
-    <section v-if="visibleSubs.length" class="card border-base-300 bg-base-100 border" aria-label="Subscriptions">
-      <div class="card-body gap-3">
-        <div>
+    <section v-if="visibleSubs.length" class="card border-base-300 bg-base-100 overflow-hidden border" aria-label="Subscriptions">
+      <div class="flex flex-col gap-3">
+        <div class="bg-base-200 border-base-300 border-b px-4 py-3 sm:px-6">
           <h2 class="font-semibold">Subscriptions</h2>
           <p class="text-base-content/70 text-sm">
             {{ money(subMonthly) }} a month · {{ money(subMonthly * 12) }} a year. Not part of net worth.
           </p>
         </div>
-        <ul class="divide-base-300 divide-y">
+        <ul class="divide-base-300 divide-y px-4 pb-2 sm:px-6">
           <li v-for="a in visibleSubs" :key="a.id" class="flex items-center justify-between gap-3 py-3" :class="{ 'opacity-60': a.archived }">
             <div class="min-w-0">
               <div class="truncate font-medium">

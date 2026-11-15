@@ -53,9 +53,9 @@ const weeks = computed(() => {
 })
 
 const CHIP: Record<CashEvent['kind'], string> = {
-  income: 'bg-success/15 text-success-content',
-  debt: 'bg-warning/20 text-warning-content',
-  bill: 'bg-info/20 text-info-content',
+  income: 'bg-success/30 border-success text-base-content',
+  debt: 'bg-warning/35 border-warning text-base-content',
+  bill: 'bg-info/30 border-info text-base-content',
 }
 const DOT: Record<CashEvent['kind'], string> = { income: 'bg-success', debt: 'bg-warning', bill: 'bg-info' }
 
@@ -186,21 +186,21 @@ const dayLabel = (iso: string) =>
                     <li
                       v-for="(e, ei) in byDate.get(date) ?? []"
                       :key="ei"
-                      class="truncate rounded px-1 py-0.5 text-xs"
+                      class="truncate rounded border-l-4 px-1 py-0.5 text-xs"
                       :class="CHIP[e.kind]"
                       :title="`${e.name}: ${signed(e)}`"
                     >
                       <NuxtLink :to="e.href" class="num font-medium">{{ signed(e) }}</NuxtLink>
-                      <span class="ml-1 opacity-80">{{ e.name }}</span>
+                      <span class="ml-1">{{ e.name }}</span>
                     </li>
                   </ul>
                 </template>
               </div>
             </div>
             <p class="text-base-content/60 flex gap-4 px-1 pt-1 text-xs">
-              <span class="flex items-center gap-1.5"><span class="bg-success/40 size-3 rounded-sm" aria-hidden="true" /> Income</span>
-              <span class="flex items-center gap-1.5"><span class="bg-warning/50 size-3 rounded-sm" aria-hidden="true" /> Debt payment</span>
-              <span class="flex items-center gap-1.5"><span class="bg-info/40 size-3 rounded-sm" aria-hidden="true" /> Bill</span>
+              <span class="flex items-center gap-1.5"><span class="bg-success/30 border-success size-3 rounded-sm border-l-4" aria-hidden="true" /> Income</span>
+              <span class="flex items-center gap-1.5"><span class="bg-warning/35 border-warning size-3 rounded-sm border-l-4" aria-hidden="true" /> Debt payment</span>
+              <span class="flex items-center gap-1.5"><span class="bg-info/30 border-info size-3 rounded-sm border-l-4" aria-hidden="true" /> Bill</span>
               <span v-if="projection" class="ml-auto">Small number: balance at the end of the day</span>
             </p>
           </div>
